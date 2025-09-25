@@ -20,7 +20,6 @@ L'application permet d'extraire automatiquement les informations pertinentes dep
   - Dates clés
 - [ ] Génération de documents Word structurés
 - [ ] Traitement par lots (multiple CV)
-- [ ] Export des données vers Excel
 - [ ] Interface utilisateur React
 
 ### Évolutions futures
@@ -88,7 +87,6 @@ Instructions à venir une fois le développement commencé.
 
 ### Phase 3 : Industrialisation (Novembre - Décembre)
 - [ ] Traitement par lots
-- [ ] Export Excel
 - [ ] Tests de performance
 - [ ] Documentation
 

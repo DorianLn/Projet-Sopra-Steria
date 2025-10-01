@@ -1,0 +1,11 @@
+# Dépendances de base
+python-docx>=0.8.11
+spacy>=3.6.0
+streamlit>=1.24.0
+pandas>=2.0.0
+
+# Traitement du texte
+regex>=2023.6.3
+
+# Tests
+pytest>=7.4.0

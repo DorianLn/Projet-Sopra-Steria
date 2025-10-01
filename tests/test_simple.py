@@ -30,10 +30,16 @@ print(f"Numéros trouvés: {telephones}")
 # Test avec votre propre texte
 print("\n=== Test avec votre texte ===")
 votre_texte = """
-Mettez ici le texte que vous voulez tester.
-Par exemple : Mon email est test@test.fr, 
-je suis né le 15/03/1990 et mon téléphone est le 07.11.22.33.44
+Je suis disponible de Mars 2024 à Décembre 2025.
+Mon stage s'est déroulé de 06/2023 à 12/2023.
+Période : 2021-2023
+
+J'habite au 123 rue de la Paix, 75001 Paris
+Vous pouvez aussi me contacter à Lyon (69)
+Mon email est test@test.fr
+Téléphone : 07.11.22.33.44
 """
-print("Dates:", extraire_dates(votre_texte))
-print("Emails:", extraire_email(votre_texte))
-print("Téléphones:", extraire_telephone(votre_texte))
+print("Dates trouvées:", extraire_dates(votre_texte))
+print("Emails trouvés:", extraire_email(votre_texte))
+print("Téléphones trouvés:", extraire_telephone(votre_texte))
+print("Adresses trouvées:", extraire_adresse(votre_texte))

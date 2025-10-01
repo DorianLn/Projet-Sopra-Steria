@@ -4,7 +4,7 @@ Script pour extraire les informations d'un CV
 import os
 import json
 from docx import Document
-from backend.extractors.extracteur import extraire_dates, extraire_email, extraire_telephone
+from backend.extractors.extracteur import extraire_dates, extraire_email, extraire_telephone, extraire_adresse
 
 def lire_cv_docx(chemin_fichier):
     """Lit le contenu d'un fichier .docx"""
@@ -37,7 +37,8 @@ def analyser_cv():
         resultats = {
             "dates": extraire_dates(texte_cv),
             "emails": extraire_email(texte_cv),
-            "telephones": extraire_telephone(texte_cv)
+            "telephones": extraire_telephone(texte_cv),
+            "adresses": extraire_adresse(texte_cv)
         }
         
         # Crée le nom du fichier de sortie
@@ -54,6 +55,7 @@ def analyser_cv():
         print(f"Dates : {resultats['dates']}")
         print(f"Emails : {resultats['emails']}")
         print(f"Téléphones : {resultats['telephones']}")
+        print(f"Adresses : {resultats['adresses']}")
         print(f"\nRésultats sauvegardés dans : {chemin_sortie}")
 
 if __name__ == "__main__":

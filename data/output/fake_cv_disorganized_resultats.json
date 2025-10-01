@@ -1,5 +1,12 @@
 {
-  "dates": [],
+  "dates": [
+    "06/2016",
+    "09/2016",
+    "2026",
+    "2017-2019",
+    "2013-2016",
+    "2012-2013"
+  ],
   "emails": [
     "candidat.test+cv@gmail.com",
     "candidat.test+cv@gmail.com"
@@ -7,5 +14,9 @@
   "telephones": [
     "07 65 43 21 09",
     "07 65 43 21 09"
+  ],
+  "adresses": [
+    "5 rue des Remparts, 69001 Lyon Tel",
+    "69001 Lyon Tel"
   ]
 }

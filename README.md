@@ -75,18 +75,22 @@ Instructions à venir une fois le développement commencé.
 ## 📅 Roadmap
 
 ### Phase 1 : PoC (Septembre - Octobre)
-- [ ] Setup du projet
-- [ ] Implémentation de la lecture basique de CV
-- [ ] Extraction simple par regex
-- [ ] Génération de documents Word
+- [✔] Setup du projet
+- [-] Implémentation de la lecture basique de CV
+- [-] Extraction simple par regex
+- [-] Génération de documents Word
 
 ### Phase 2 : Amélioration (Octobre - Novembre)
 - [ ] Intégration de spaCy
+- [✔] Gestion agile du projet -> Choix de Jira
 - [ ] Amélioration des algorithmes d'extraction
 - [ ] Tests et validation
+- [ ] Front-End intégration web
+- [ ] Liaison Front-Back
 
 ### Phase 3 : Industrialisation (Novembre - Décembre)
 - [ ] Traitement par lots
+- [ ] Généralisation des formats (docx, pptx, pdf)
 - [ ] Tests de performance
 - [ ] Documentation
 
@@ -98,7 +102,13 @@ Instructions à venir une fois le développement commencé.
 
 ## 👥 Contributeurs
 
-Liste des contributeurs à venir.
+Julien Thepaut
+Dorian Lo Negro
+Thomas Gaugeais
+Safae Berrichi
+Nehade El Mokhtari
+Clément
+
 
 ## 📜 Licence
 

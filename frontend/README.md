@@ -1,16 +1,72 @@
-# React + Vite
+# Frontend - CV Extract Pro Projet Sopra Steria
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Ce dépôt contient la partie **frontend** de l’application, développée avec **React**, **Vite** et **TailwindCSS**.  
+Il s’agit d'une interface utilisateur pour l'extraction et la génération de CV standardisés.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Stack Technique
 
-## React Compiler
+- ⚛️ **React 19**
+- ⚡ **Vite** (serveur de développement rapide + build optimisé avec Rollup)
+- 🎨 **TailwindCSS** (design responsive & customisable)
+- 🛣 **React Router DOM** (navigation multi-pages)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 📦 Installation & Lancement
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 1. Cloner le projet
+```bash
+git clone https://github.com/DorianLn/Projet-Sopra-Steria.git
+cd Projet-Sopra-Steria/frontend
+
+### 2. Installer les dépendances
+npm install
+
+### 3. Lancer le serveur de développement
+npm run dev
+
+
+➡️ L’application sera disponible sur http://localhost:5173
+
+### 4. Build pour la production
+npm run build
+
+### 5. Prévisualiser le build
+npm run preview
+
+### 📂 Structure du projet
+    frontend/
+    ├── public/             # Fichiers statiques
+    ├── src/
+    │   ├── assets/         # Images, icônes, etc.
+    │   ├── components/     # Composants réutilisables (Navbar, Footer...)
+            ├── Navbar.jsx  
+    │   ├── pages/          # Pages principales (Home, About, Contact...)
+            ├── Home.jsx 
+    │   ├── App.jsx         # Point d’entrée de l’app
+    │   ├── main.jsx        # Initialisation React
+    │   └── index.css       # Fichier global Tailwind
+    ├── index.html      
+    ├── package.json
+    ├── tailwind.config.js  # Configuration Tailwind
+    ├── postcss.config.cjs
+    ├── vite.config.js      # Configuration Vite
+    └── README.md
+
+### 🎨 Style & Thème
+Police : Manrope via Google Fonts
+Mode clair/sombre avec @custom-variant dark
+Couleur primaire :rgb(221, 83, 52)
+
+### 📌 Scripts utiles
+npm run dev → Lancer en mode développement
+npm run build → Construire pour production
+npm run preview → Tester le build localement
+
+### ✨ Contributeurs
+👩‍💻 Safae 
+👨‍💻 Nehade
+👨‍💻 Clément
+

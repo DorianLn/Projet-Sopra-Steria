@@ -5,7 +5,7 @@ import Home from './pages/Home';
 
 const App = () => {
   return (
-      <div>
+      <div className='root'>
         <Routes>
           <Route path='/' element={<Home />} />
         </Routes>

@@ -6,6 +6,7 @@ pandas>=2.0.0
 
 # Traitement du texte
 regex>=2023.6.3
+PyPDF2>=3.0.0
 
 # Tests
 pytest>=7.4.0

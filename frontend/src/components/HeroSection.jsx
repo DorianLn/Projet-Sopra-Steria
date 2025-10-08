@@ -5,7 +5,7 @@ import heroImage from "../assets/hero-cv.png";
 import sopra from "../assets/sopra-steria-logo.svg";
 import "../index.css";
 
-const Hero = () => {
+const HeroSection = () => {
   return (
     <section className="hero-section">
       {/* Cercles décoratifs */}
@@ -74,4 +74,4 @@ const Hero = () => {
   );
 };
 
-export default Hero;
+export default HeroSection;

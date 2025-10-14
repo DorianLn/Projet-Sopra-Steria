@@ -67,6 +67,12 @@ pip install -r requirements.txt
 cd frontend
 npm install
 ```
+3. Installer Spacy 
+```bash
+pip install -r requirements.txt
+python -m spacy download fr_core_news_md
+
+```
 
 ## 🚀 Utilisation
 

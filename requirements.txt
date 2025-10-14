@@ -10,6 +10,8 @@ PyPDF2>=3.0.0
 dateparser>=1.1.8
 python-dateutil>=2.8.2
 rapidfuzz>=3.3.1
+spacy>=3.7.0,<4.0.0
+
 
 # Extraction et normalisation
 phonenumbers>=8.13.20  # Pour la normalisation des numéros de téléphone

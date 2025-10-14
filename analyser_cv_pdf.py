@@ -4,6 +4,7 @@ from typing import List
 from backend.extractors.pdf_to_docx import convert_pdf_to_docx
 from analyser_cv import lire_cv_docx, extraire_dates, extraire_email, extraire_telephone, extraire_adresse
 import json
+from backend.extractors.section_classifier import build_structured_json
 
 def find_pdf_files(input_dir: str) -> List[Path]:
     """
@@ -62,14 +63,38 @@ def process_pdf_cv(pdf_path: str, output_json_path: str = None) -> bool:
         try:
             # Lit le contenu du CV
             texte_cv = lire_cv_docx(str(temp_docx))
-            
-            # Extrait les informations
-            resultats = {
-                "dates": extraire_dates(texte_cv),
-                "emails": extraire_email(texte_cv),
-                "telephones": extraire_telephone(texte_cv),
-                "adresses": extraire_adresse(texte_cv)
-            }
+
+            print("===== DEBUG: extrait texte (début) =====")
+            print(texte_cv[:1000])   # affiche les 1000 premiers caractères
+            print("===== DEBUG: phrases =====")
+            import re
+            sentences = re.split(r'[.!\n]', texte_cv)
+            for i,s in enumerate(sentences[:30]):
+                print(f"[{i}] {s.strip()}")
+            print("=======================================")
+
+
+            from backend.extractors.spacy_extractor import extraire_entites
+            entites_debug = extraire_entites(texte_cv)
+            print("===== DEBUG entites spaCy =====")
+            print(entites_debug)
+            print("================================")
+
+
+            # Extraction regex
+            emails = extraire_email(texte_cv)
+            telephones = extraire_telephone(texte_cv)
+            adresses = extraire_adresse(texte_cv)
+            dates = extraire_dates(texte_cv)
+
+            # Structure les résultats
+            resultats = build_structured_json(
+                emails=emails,
+                telephones=telephones,
+                adresses=adresses,
+                dates=dates,
+                texte_cv=texte_cv
+            )
             
             # Sauvegarde les résultats
             with open(output_json_path, 'w', encoding='utf-8') as f:
@@ -80,10 +105,11 @@ def process_pdf_cv(pdf_path: str, output_json_path: str = None) -> bool:
             # Affiche les résultats
             print("\nRésultats trouvés :")
             print("-" * 20)
+            print(f"Email : {resultats['contact']['email']}")
+            print(f"Téléphone : {resultats['contact']['telephone']}")
+            print(f"Adresse : {resultats['contact']['adresse']}")
             print(f"Dates : {resultats['dates']}")
-            print(f"Emails : {resultats['emails']}")
-            print(f"Téléphones : {resultats['telephones']}")
-            print(f"Adresses : {resultats['adresses']}")
+
             
         except Exception as e:
             print(f"Erreur lors de l'extraction des données: {str(e)}")

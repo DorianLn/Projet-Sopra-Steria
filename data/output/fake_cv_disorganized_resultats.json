@@ -30,24 +30,24 @@
     }
   ],
   "competences": [
-    "Docker",
-    "React",
-    "Ci/cd",
-    "Css",
-    "Javascript",
-    "Sql",
     "Leadership",
-    "Python",
+    "Flask",
     "Cloud",
-    "Api",
+    "Docker",
+    "Python",
     "Aws",
-    "Html",
+    "Sql",
+    "Javascript",
+    "Css",
     "Communication",
-    "Flask"
+    "Api",
+    "Ci/cd",
+    "React",
+    "Html"
   ],
   "langues": [
-    "Anglais",
-    "Français"
+    "Français",
+    "Anglais"
   ],
   "dates": [
     "06/2016",

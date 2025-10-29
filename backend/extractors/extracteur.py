@@ -1,5 +1,9 @@
 import re
 
+def dedupliquer(liste):
+    """Élimine les doublons tout en préservant l'ordre d'apparition"""
+    return list(dict.fromkeys(liste))
+
 def extraire_dates(texte):
     """Trouve toutes les dates dans un texte avec différents formats"""
     dates = []
@@ -25,27 +29,27 @@ def extraire_dates(texte):
     dates_interval = re.findall(pattern4, texte)
     dates.extend([f"{d[0]}-{d[1]}" for d in dates_interval])
     
-    return dates
+    return dedupliquer(dates)
 
 def extraire_email(texte):
     """Trouve tous les emails dans un texte"""
     pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    return re.findall(pattern, texte)
+    return dedupliquer(re.findall(pattern, texte))
 
 def extraire_telephone(texte):
     """Trouve tous les numéros de téléphone dans un texte"""
     pattern = r'(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}'
-    return re.findall(pattern, texte)
+    return dedupliquer(re.findall(pattern, texte))
 
 def extraire_adresse(texte):
     """Trouve les adresses dans un texte"""
     # Pattern pour différents formats d'adresse
     patterns = [
         # Numéro + rue/avenue/boulevard + code postal + ville
-        r'\b(\d+[\s,]+(?:rue|avenue|boulevard|av|bd|place|chemin|impasse)[\s,]+[\w\s]+[\s,]+\d{5}[\s,]+[\w\s-]+)\b',
+        r'\b(\d+[\s,]+(?:rue|avenue|boulevard|av|bd|place|chemin|impasse)[\s,]+[\w\s]+[\s,]+\d{5}[\s,]+(?!Tel\b)[\w\s-]+?)(?:\s+Tel\b|$)',
         
         # Code postal + ville
-        r'\b(\d{5}[\s,]+[\w\s-]+)\b',
+        r'\b(\d{5}[\s,]+(?!Tel\b)[\w\s-]+?)(?:\s+Tel\b|$)',
         
         # Ville + département
         r'\b([A-Z][a-zéèêëîïôöûüç]+(?:[-\s][A-Z][a-zéèêëîïôöûüç]+)*[\s,]+\(\d{2,3}\))\b'
@@ -60,4 +64,4 @@ def extraire_adresse(texte):
             if adresse not in adresses:
                 adresses.append(adresse)
     
-    return adresses
+    return dedupliquer(adresses)

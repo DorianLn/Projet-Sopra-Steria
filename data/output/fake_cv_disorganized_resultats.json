@@ -30,24 +30,24 @@
     }
   ],
   "competences": [
-    "Leadership",
-    "Flask",
-    "Cloud",
     "Docker",
-    "Python",
+    "Communication",
+    "Ci/cd",
     "Aws",
     "Sql",
-    "Javascript",
+    "Flask",
     "Css",
-    "Communication",
     "Api",
-    "Ci/cd",
-    "React",
-    "Html"
+    "Html",
+    "Python",
+    "Cloud",
+    "Leadership",
+    "Javascript",
+    "React"
   ],
   "langues": [
-    "Français",
-    "Anglais"
+    "Anglais",
+    "Français"
   ],
   "dates": [
     "06/2016",

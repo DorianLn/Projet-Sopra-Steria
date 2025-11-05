@@ -1,9 +1,8 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { ArrowRight, FileText } from "lucide-react";
-import heroImage from "../assets/hero-cv.png";
-import sopra from "../assets/sopra-steria-logo.svg";
-import "../index.css";
+import heroImage from "../assets/images/hero-cv.png";
+import sopra from "../assets/logos/sopra-steria-logo.svg";
 
 const HeroSection = () => {
   return (

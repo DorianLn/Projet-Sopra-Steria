@@ -1,25 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { HiMenu, HiX, HiOutlineMoon, HiOutlineSun } from "react-icons/hi";
-import logo2 from "../assets/logo2.png";
+import logo2 from "../assets/logos/logo2.png";
+import { useDarkMode } from "../hooks/useDarkMode";
+import { NAV_LINKS, ROUTES } from "../utils/constants";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem("darkMode") === "true"
-  );
-
-  // Applique la classe dark sur body
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    localStorage.setItem("darkMode", darkMode);
-  }, [darkMode]);
-
-  const toggleDarkMode = () => setDarkMode(!darkMode);
+  const { darkMode, toggleDarkMode } = useDarkMode();
 
   return (
     <header className="navbar">
@@ -31,34 +19,21 @@ const Navbar = () => {
 
         {/* Menu Desktop */}
         <nav className="navbar-links">
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              isActive ? "navbar-link navbar-link-active" : "navbar-link"
-            }
-          >
-            Home
-          </NavLink>
-          <NavLink
-            to="/features"
-            className={({ isActive }) =>
-              isActive ? "navbar-link navbar-link-active" : "navbar-link"
-            }
-          >
-            Fonctionnalités
-          </NavLink>
-          <NavLink
-            to="/howitworks"
-            className={({ isActive }) =>
-              isActive ? "navbar-link navbar-link-active" : "navbar-link"
-            }
-          >
-            Comment ça marche
-          </NavLink>
+          {NAV_LINKS.map((link) => (
+            <NavLink
+              key={link.path}
+              to={link.path}
+              className={({ isActive }) =>
+                isActive ? "navbar-link navbar-link-active" : "navbar-link"
+              }
+            >
+              {link.label}
+            </NavLink>
+          ))}
         </nav>
 
         {/* Boutons Desktop */}
-        <div className="hidden md:flex items-center gap-4 ">
+        <div className="navbar-actions">
           <button
             onClick={toggleDarkMode}
             className={`text-xl focus:outline-none ${
@@ -69,13 +44,13 @@ const Navbar = () => {
             {darkMode ? <HiOutlineSun size={28} /> : <HiOutlineMoon size={28}  />}
           </button>
 
-          <NavLink to="/start" className="navbar-btn">
+          <NavLink to={ROUTES.START} className="navbar-btn">
             Commencer
           </NavLink>
         </div>
 
         {/* Menu Mobile Toggle */}
-        <div className="md:hidden">
+        <div className="navbar-toggle">
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="text-gray-700 dark:text-gray-200 focus:outline-none"
@@ -98,13 +73,13 @@ const Navbar = () => {
             Home
           </NavLink>
           <NavLink
-            to="/features"
+            to="/example"
             onClick={() => setIsOpen(false)}
             className={({ isActive }) =>
               isActive ? "navbar-link navbar-link-active" : "navbar-link"
             }
           >
-            Fonctionnalités
+            Voir un exemple
           </NavLink>
           <NavLink
             to="/howitworks"

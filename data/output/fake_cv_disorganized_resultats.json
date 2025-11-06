@@ -1,6 +1,6 @@
 {
   "contact": {
-    "nom": "Langues",
+    "nom": null,
     "email": "candidat.test+cv@gmail.com",
     "telephone": "07 65 43 21 09",
     "adresse": "5 rue des Remparts, 69001 Lyon"
@@ -8,42 +8,42 @@
   "formations": [
     {
       "etablissement": "Université Lyon 2",
-      "dates": "2013-10-29"
+      "dates": "2013-11-06"
     }
   ],
   "experiences": [
     {
       "entreprise": "Sopra Steria",
-      "dates": "2016-10-29"
+      "dates": "2016-11-06"
     },
     {
       "entreprise": "ServeurPlus",
-      "dates": "2019-10-29"
+      "dates": "2019-11-06"
     },
     {
       "entreprise": "Développeur",
-      "dates": "2021-10-29"
+      "dates": "2021-11-06"
     },
     {
       "entreprise": "PetiteBoite",
-      "dates": "2017-10-29"
+      "dates": "2017-11-06"
     }
   ],
   "competences": [
-    "Docker",
-    "Communication",
-    "Ci/cd",
-    "Aws",
-    "Sql",
-    "Flask",
-    "Css",
-    "Api",
-    "Html",
-    "Python",
-    "Cloud",
     "Leadership",
+    "Sql",
+    "Docker",
+    "React",
+    "Api",
+    "Cloud",
+    "Python",
+    "Aws",
+    "Css",
+    "Flask",
     "Javascript",
-    "React"
+    "Ci/cd",
+    "Communication",
+    "Html"
   ],
   "langues": [
     "Anglais",

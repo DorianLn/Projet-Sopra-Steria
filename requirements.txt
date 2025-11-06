@@ -1,3 +1,7 @@
+# --- API Backend ---
+Flask>=3.0.0
+Flask-Cors>=4.0.0
+
 # Dépendances de base
 python-docx>=0.8.11
 spacy>=3.6.0
@@ -20,4 +24,6 @@ phonenumbers>=8.13.20  # Pour la normalisation des numéros de téléphone
 pytest>=7.4.0
 
 # Note: Pour installer le modèle français de spaCy, exécuter :
-# python -m spacy download fr_core_news_md
+python -m spacy download fr_core_news_md
+
+pip install flask flask-cors

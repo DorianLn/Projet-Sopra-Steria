@@ -1,572 +1,492 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
-@import "tailwindcss";
-
-*{
-  font-family: "raleway", sans-serif;
-}
-
-/* ===================== NAVBAR GLOBAL =======.dark button.text-xl:empty::before {
-  content: "☀️";
-  font-size: 1.5rem;
-}
-
-/* ===================== MOBILE HAMBURGER BUTTON ===================== */
-.navbar-toggle button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.navbar-toggle button:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-.dark .navbar-toggle button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.navbar-toggle button svg {
-  width: 1.875rem;
-  height: 1.875rem;
-}
-
-/* Classes pour les couleurs du hamburger */
-.text-gray-700 {
-  color: #374151;
-}
-
-.dark .text-gray-200 {
-  color: #e5e7eb;
-}
-
-/* ===================== ADDITIONAL UTILITY CLASSES ===================== */
-.navbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background-color: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
-}
-
-/* Si le navigateur supporte backdrop-filter, applique un blur et ajuste l'opacité */
-@supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
-  .navbar {
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    background-color: rgba(255, 255, 255, 0.6);
-  }
-}
-
-/* Dark mode */
-.dark .navbar {
-  background-color: rgba(15, 15, 15, 0.95);
-}
-
-@supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
-  .dark .navbar {
-    background-color: rgba(15, 15, 15, 0.6);
-  }
-}
-
-.navbar-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  height: 6rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.navbar-logo img {
-  width: 12rem;
-}
-
-.navbar-links {
-  display: none;
-}
-
-@media (min-width: 768px) {
-  .navbar-links {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-  }
-}
-
-.navbar-link {
-  font-weight: 700;
-  transition: transform 0.2s ease, color 0.2s ease;
-  border-bottom: 4px solid transparent;
-  text-decoration: none;
-  color: #000;
-}
-
-.navbar-link:hover {
-  transform: scale(0.9);
-}
-
-.navbar-link-active {
-  color: #FF5614 !important;
-  border-bottom: 2px solid #FF5614;
-}
-
-.dark .navbar-link {
-  color: #eee;
-}
-
-.navbar-btn {
-  display: none;
-}
-
-.navbar-btn:hover {
-  transform: scale(0.9);
-}
-
-@media (min-width: 768px) {
-  .navbar-btn {
-    display: flex;
-    font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: 0.75rem;
-    background: linear-gradient(90deg, #880015, #FF5614);
-    color: white;
-    box-shadow: 0 8px 20px rgba(255, 86, 20, 0.3);
-    transition: all 0.3s ease;
-    text-decoration: none;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
-.navbar-btn:hover {
-  opacity: 0.9;
-}
-
-.navbar-mobile {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem 1.5rem;
-  background: linear-gradient(to bottom right, #ffffff, #fef5f1);
-}
-
-.dark .navbar-mobile {
-  background: linear-gradient(to bottom right, #4d4c4c, #302e2e);
-}
-
-.navbar-mobile .navbar-link {
-  display: block;
-  color: #111;
-}
-
-.dark .navbar-mobile .navbar-link {
-  color: #eee;
-}
-
-.navbar-mobile .navbar-btn {
-  text-align: center;
-  width: 100%;
-  color: white;
-  background: linear-gradient(90deg, #880015, #FF5614);
-}
-
-.dark .navbar-mobile .navbar-btn {
-  color: white;
-  background: linear-gradient(90deg, #880015, #FF5614);
-}
-
-/* ===================== NAVBAR DESKTOP ACTIONS ===================== */
-/* Actions desktop (bouton dark mode + commencer) */
-.navbar-actions {
-  display: none;
-  align-items: center;
-  gap: 1rem;
-}
-
-@media (min-width: 768px) {
-  .navbar-actions {
-    display: flex;
-  }
-}
-
-/* Toggle mobile hamburger */
-.navbar-toggle {
-  display: block;
-}
-
-@media (min-width: 768px) {
-  .navbar-toggle {
-    display: none;
-  }
-}
-
-.text-xl {
-  font-size: 1.25rem;
-  line-height: 1.75rem;
-}
-
-.focus\\:outline-none:focus {
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-}
-
-.text-white {
-  --tw-text-opacity: 1;
-  color: rgb(255 255 255 / var(--tw-text-opacity));
-}
-
-.text-black {
-  --tw-text-opacity: 1;
-  color: rgb(0 0 0 / var(--tw-text-opacity));
-}
-
-.text-gray-700 {
-  --tw-text-opacity: 1;
-  color: rgb(55 65 81 / var(--tw-text-opacity));
-}
-
-.dark .text-gray-200 {
-  --tw-text-opacity: 1;
-  color: rgb(229 231 235 / var(--tw-text-opacity));
-}
-
-/* ===================== DARK MODE TOGGLE BUTTON ===================== */
-button.text-xl {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  line-height: 1;
-  min-width: 3rem;
-  min-height: 3rem;
-}
-
-button.text-xl:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-  transform: scale(1.05);
-}
-
-.dark button.text-xl:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* Styles spécifiques pour les icônes */
-button.text-xl svg {
-  display: block !important;
-  width: 1.75rem !important;
-  height: 1.75rem !important;
-  color: inherit !important;
-}
-
-/* Classes de couleur pour le bouton */
-.text-white {
-  color: #ffffff !important;
-}
-
-.text-black {
-  color: #000000 !important;
-}
-
-/* Focus pour accessibilité */
-.focus\\:outline-none:focus {
-  outline: 2px solid #FF5614;
-  outline-offset: 2px;
-}
-
-/* Styles propres pour le bouton dark mode */
-
-/* Si les icônes ne se chargent pas, affiche du text de fallback */
-button.text-xl:empty::before {
-  content: "🌙" !important;
-  font-size: 1.5rem;
-  display: block;
-}
-
-.dark button.text-xl:empty::before {
-  content: "☀️" !important;
-  font-size: 1.5rem;
-  display: block;
-}
-
-/* ===================== MOBILE HAMBURGER BUTTON ===================== */
-.md\\:hidden button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: all 0.3s ease;
-}
-
-.md\\:hidden button:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-.dark .md\\:hidden button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* ===================== ADDITIONAL UTILITY CLASSES ===================== */
-.mt-2 {
-  margin-top: 0.5rem;
-}
-
-.self-start {
-  align-self: flex-start;
-}
-
-/* Focus styles pour accessibilité */
-button:focus {
-  outline: 2px solid #FF5614;
-  outline-offset: 2px;
-}
-
-/* ===================== GLOBAL STYLES ===================== */
-.root {
-  background: linear-gradient(to bottom right, #ffffff, #fef5f1);
-}
-
-/* Containers responsifs */
-.hero-container, .how-it-works-container, .example-container, .start-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-@media (min-width: 640px) {
-  .hero-container, .how-it-works-container, .example-container, .start-container {
-    padding: 0 1.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .hero-container, .how-it-works-container, .example-container, .start-container {
-    padding: 0 2rem;
-  }
-}
-
-/* Sections responsives */
-.hero-section, .start-section, .how-it-works-hero, .example-hero {
-  padding: 4rem 0;
-}
-
-@media (min-width: 768px) {
-  .hero-section, .start-section, .how-it-works-hero, .example-hero {
-    padding: 6rem 0;
-  }
-}
-
-/* ===================== BUTTONS GLOBAL ===================== */
-.btn-primary {
-  background: linear-gradient(90deg, #880015, #ff5614);
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 20px rgba(255, 86, 20, 0.3);
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
-  transform: none;
-}
-
-.btn-secondary {
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  color: #000;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.3s ease;
-  background-color: transparent;
-}
-
-.dark .btn-secondary {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.dark .btn-secondary:hover {
-  background-color: rgba(255, 86, 20, 0.15);
-}
-
-/* ===================== TEXT GLOBAL ===================== */
-.gradient-text {
-  background: linear-gradient(to right, #880015, #ff5614);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-
-.hero-title {
-  font-size: clamp(2rem, 5vw, 4rem);
-  font-weight: 700;
-  line-height: 1.2;
-  color: #111;
-  text-align: center;
-  margin: 0 auto 1rem;
-}
-
-.dark .hero-title {
-  color: #f9fafb;
-}
-
-.hero-subtitle {
-  font-size: clamp(1rem, 2.5vw, 1.25rem);
-  color: #555;
-  max-width: 48rem;
-  margin: 0 auto 2rem;
-  text-align: center;
-  line-height: 1.6;
-  padding: 0 1rem;
-}
-
-.dark .hero-subtitle {
-  color: #ccc;
-}
-
-/* Section titles and subtitles */
-.section-title {
-  font-size: clamp(1.875rem, 4vw, 2.5rem);
-  font-weight: 700;
-  margin-bottom: 1rem;
-  color: #111;
-  text-align: center;
-}
-
-.dark .section-title {
-  color: #f9fafb;
-}
-
-.section-subtitle {
-  font-size: clamp(1rem, 2vw, 1.25rem);
-  color: #555;
-  margin: 0 auto 2rem;
-  text-align: center;
-  max-width: 40rem;
-  line-height: 1.6;
-  padding: 0 1rem;
-}
-
-.dark .section-subtitle {
-  color: #ccc;
-}
-
-/* ===================== RESPONSIVE GRIDS ===================== */
-.responsive-grid-1 {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-}
-
-@media (min-width: 768px) {
-  .responsive-grid-2 {
-    grid-template-columns: repeat(2, 1fr);
-  }
+/* ============================================================
+   INDEX.CSS — GLOBAL STYLESHEET (CLEAN VERSION)
+   ============================================================ */
+
+   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+   @import "tailwindcss";
+   
+   * {
+     font-family: "Raleway", sans-serif;
+   }
+   
+    /* ===================== NAVBAR GLOBAL =======.dark button.text-xl:empty::before { content: "☀️"; font-size: 1.5rem; } 
+    /* ===================== MOBILE HAMBURGER BUTTON ===================== */
+    .navbar-toggle button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   
-  .responsive-grid-3 {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .responsive-grid-4 {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-/* Utilisation des classes : responsive-grid-1 responsive-grid-2 responsive-grid-3 etc. */
-
-/* ===================== HERO BUTTONS RESPONSIVE ===================== */
-.hero-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 2rem;
-}
-
-@media (min-width: 1024px) {
-  .hero-buttons {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 640px) {
-  .hero-buttons {
-    flex-direction: column;
-    align-items: center;
-  }
+    .navbar-toggle button:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
   
-  .hero-buttons .btn-primary,
-  .hero-buttons .btn-secondary {
-    width: 100%;
-    max-width: 280px;
-  }
-}
-
-/* ===================== SOPRA LOGO COMPONENT ===================== */
-.sopra-logo {
-  display: flex;
-  justify-content: center;
-  margin: 2rem auto;
-  padding: 1rem;
-}
-
-.sopra-logo img {
-  height: 4rem;
-  width: auto;
-  max-width: 300px;
-}
-
-@media (min-width: 768px) {
-  .sopra-logo img {
-    height: 5rem;
-    max-width: 400px;
-  }
-}
-
-/* Logo positionné en haut des pages */
-.sopra-logo-top {
-  display: flex;
-  justify-content: center;
-  padding: 2rem 1rem 1rem;
-  margin-bottom: 1rem;
-}
-
-.sopra-logo-top img {
-  height: 3rem;
-  width: auto;
-  max-width: 250px;
-}
-
-@media (min-width: 768px) {
-  .sopra-logo-top img {
-    height: 4rem;
-    max-width: 350px;
-  }
-}
+    .dark .navbar-toggle button:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  
+    .navbar-toggle button svg {
+      width: 1.875rem;
+      height: 1.875rem;
+    }
+  
+    /* Classes pour les couleurs du hamburger */
+    .text-gray-700 {
+      color: #374151;
+    }
+  
+    .dark .text-gray-200 {
+      color: #e5e7eb;
+    }
+  
+    /* ===================== ADDITIONAL UTILITY CLASSES ===================== */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background-color: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+    }
+  
+    /* Si le navigateur supporte backdrop-filter, applique un blur et ajuste l'opacité */
+    @supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
+      .navbar {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        background-color: rgba(255, 255, 255, 0.6);
+      }
+    }
+  
+    /* Dark mode */
+    .dark .navbar {
+      background-color: rgba(15, 15, 15, 0.95);
+    }
+  
+    @supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
+      .dark .navbar {
+        background-color: rgba(15, 15, 15, 0.6);
+      }
+    }
+  
+    .navbar-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      height: 6rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+  
+    .navbar-logo img {
+      width: 12rem;
+    }
+  
+    .navbar-links {
+      display: none;
+    }
+  
+    @media (min-width: 768px) {
+      .navbar-links {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+    }
+  
+    .navbar-link {
+      font-weight: 700;
+      transition: transform 0.2s ease, color 0.2s ease;
+      border-bottom: 4px solid transparent;
+      text-decoration: none;
+      color: #000;
+    }
+  
+    .navbar-link:hover {
+      transform: scale(0.9);
+    }
+  
+    .navbar-link-active {
+      color: #FF5614 !important;
+      border-bottom: 2px solid #FF5614;
+    }
+  
+    .dark .navbar-link {
+      color: #eee;
+    }
+  
+    .navbar-btn {
+      display: none;
+    }
+  
+    .navbar-btn:hover {
+      transform: scale(0.9);
+    }
+  
+    @media (min-width: 768px) {
+      .navbar-btn {
+        display: flex;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 0.75rem;
+        background: linear-gradient(90deg, #880015, #FF5614);
+        color: white;
+        box-shadow: 0 8px 20px rgba(255, 86, 20, 0.3);
+        transition: all 0.3s ease;
+        text-decoration: none;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+  
+    .navbar-btn:hover {
+      opacity: 0.9;
+    }
+  
+    .navbar-mobile {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem;
+      background: linear-gradient(to bottom right, #ffffff, #fef5f1);
+    }
+  
+    .dark .navbar-mobile {
+      background: linear-gradient(to bottom right, #4d4c4c, #302e2e);
+    }
+  
+    .navbar-mobile .navbar-link {
+      display: block;
+      color: #111;
+    }
+  
+    .dark .navbar-mobile .navbar-link {
+      color: #eee;
+    }
+  
+    .navbar-mobile .navbar-btn {
+      text-align: center;
+      width: 100%;
+      color: white;
+      background: linear-gradient(90deg, #880015, #FF5614);
+    }
+  
+    .dark .navbar-mobile .navbar-btn {
+      color: white;
+      background: linear-gradient(90deg, #880015, #FF5614);
+    }
+  
+    /* ===================== NAVBAR DESKTOP ACTIONS ===================== */
+    /* Actions desktop (bouton dark mode + commencer) */
+    .navbar-actions {
+      display: none;
+      align-items: center;
+      gap: 1rem;
+    }
+  
+    @media (min-width: 768px) {
+      .navbar-actions {
+        display: flex;
+      }
+    }
+  
+    /* Toggle mobile hamburger */
+    .navbar-toggle {
+      display: block;
+    }
+  
+    @media (min-width: 768px) {
+      .navbar-toggle {
+        display: none;
+      }
+    }
+  
+    .text-xl {
+      font-size: 1.25rem;
+      line-height: 1.75rem;
+    }
+  
+    .focus\\:outline-none:focus {
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+    }
+  
+    .text-white {
+      --tw-text-opacity: 1;
+      color: rgb(255 255 255 / var(--tw-text-opacity));
+    }
+  
+    .text-black {
+      --tw-text-opacity: 1;
+      color: rgb(0 0 0 / var(--tw-text-opacity));
+    }
+  
+    .text-gray-700 {
+      --tw-text-opacity: 1;
+      color: rgb(55 65 81 / var(--tw-text-opacity));
+    }
+  
+    .dark .text-gray-200 {
+      --tw-text-opacity: 1;
+      color: rgb(229 231 235 / var(--tw-text-opacity));
+    }
+  
+    /* ===================== DARK MODE TOGGLE BUTTON ===================== */
+    button.text-xl {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      line-height: 1;
+      min-width: 3rem;
+      min-height: 3rem;
+    }
+  
+    button.text-xl:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+      transform: scale(1.05);
+    }
+  
+    .dark button.text-xl:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  
+    /* Styles spécifiques pour les icônes */
+    button.text-xl svg {
+      display: block !important;
+      width: 1.75rem !important;
+      height: 1.75rem !important;
+      color: inherit !important;
+    }
+  
+    /* Classes de couleur pour le bouton */
+    .text-white {
+      color: #ffffff !important;
+    }
+  
+    .text-black {
+      color: #000000 !important;
+    }
+  
+    /* Focus pour accessibilité */
+    .focus\\:outline-none:focus {
+      outline: 2px solid #FF5614;
+      outline-offset: 2px;
+    }
+  
+    /* Styles propres pour le bouton dark mode */
+    /* Si les icônes ne se chargent pas, affiche du text de fallback */
+    button.text-xl:empty::before {
+      content: "🌙" !important;
+      font-size: 1.5rem;
+      display: block;
+    }
+  
+    .dark button.text-xl:empty::before {
+      content: "☀️" !important;
+      font-size: 1.5rem;
+      display: block;
+    }
+  
+    /* ===================== MOBILE HAMBURGER BUTTON ===================== */
+    .md\\:hidden button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+    }
+  
+    .md\\:hidden button:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+  
+    .dark .md\\:hidden button:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    /* ============================================================
+      🔘 GLOBAL BUTTONS
+      ============================================================ */
+   .btn-primary {
+     background: linear-gradient(90deg, #880015, #ff5614);
+     color: white;
+     padding: 0.75rem 1.5rem;
+     border-radius: 0.75rem;
+     font-weight: 600;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 0.5rem;
+     transition: all 0.3s ease;
+     box-shadow: 0 8px 20px rgba(255, 86, 20, 0.3);
+   }
+   
+   .btn-primary:hover {
+     opacity: 0.9;
+   }
+   
+   .btn-secondary {
+     border: 1px solid rgba(0, 0, 0, 0.3);
+     color: #000;
+     padding: 0.75rem 1.5rem;
+     border-radius: 0.75rem;
+     font-weight: 600;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 0.5rem;
+     transition: all 0.3s ease;
+     background-color: transparent;
+   }
+   
+   .dark .btn-secondary {
+     color: #fff;
+     border-color: rgba(255, 255, 255, 0.3);
+   }
+   
+   /* ============================================================
+      📝 TEXTES ET COULEURS
+      ============================================================ */
+   .gradient-text {
+     background: linear-gradient(to right, #880015, #ff5614);
+     -webkit-background-clip: text;
+     -webkit-text-fill-color: transparent;
+     color: transparent;
+   }
+   
+   .hero-title,
+   .section-title {
+     font-weight: 700;
+     text-align: center;
+     color: #111;
+   }
+   
+   .hero-title {
+     font-size: clamp(2rem, 5vw, 4rem);
+     margin-bottom: 1rem;
+   }
+   
+   .section-title {
+     font-size: clamp(1.875rem, 4vw, 2.5rem);
+     margin-bottom: 1rem;
+   }
+   
+   .dark .hero-title,
+   .dark .section-title {
+     color: #f9fafb;
+   }
+   
+   .hero-subtitle,
+   .section-subtitle {
+     font-size: clamp(1rem, 2.5vw, 1.25rem);
+     color: #555;
+     line-height: 1.6;
+     text-align: center;
+     margin: 0 auto 2rem;
+     max-width: 48rem;
+   }
+   
+   .dark .hero-subtitle,
+   .dark .section-subtitle {
+     color: #ccc;
+   }
+   
+   /* ============================================================
+      🔗 GLOBAL LINKS
+      ============================================================ */
+   a {
+     color: #ff5614;
+     font-weight: 600;
+     text-decoration: none;
+     transition: color 0.3s ease;
+   }
+   
+   a:hover {
+     color: #880015;
+   }
+   
+   /* Liens stylisés dans les paragraphes */
+   p a,
+   .section-subtitle a,
+   .hero-subtitle a {
+     background: linear-gradient(90deg, #880015, #ff5614);
+     -webkit-background-clip: text;
+     -webkit-text-fill-color: transparent;
+     font-weight: 700;
+   }
+   
+   p a:hover,
+   .section-subtitle a:hover,
+   .hero-subtitle a:hover {
+     opacity: 0.8;
+   }
+   
+   /* ============================================================
+      🧩 STRUCTURE & GRIDS
+      ============================================================ */
+   .root {
+     background: linear-gradient(to bottom right, #ffffff, #fef5f1);
+   }
+   
+   .responsive-grid-1 {
+     display: grid;
+     grid-template-columns: 1fr;
+     gap: 2rem;
+   }
+   
+   @media (min-width: 768px) {
+     .responsive-grid-2 {
+       grid-template-columns: repeat(2, 1fr);
+     }
+   
+     .responsive-grid-3 {
+       grid-template-columns: repeat(3, 1fr);
+     }
+   }
+   
+   @media (min-width: 1024px) {
+     .responsive-grid-4 {
+       grid-template-columns: repeat(4, 1fr);
+     }
+   }
+   
+   /* ============================================================
+      🟥 SOPRA LOGO
+      ============================================================ */
+   .sopra-logo,
+   .sopra-logo-top {
+     display: flex;
+     justify-content: center;
+     margin: 2rem auto;
+     padding: 1rem;
+   }
+   
+   .sopra-logo img,
+   .sopra-logo-top img {
+     height: 4rem;
+     width: auto;
+     max-width: 300px;
+   }
+   
+   @media (min-width: 768px) {
+     .sopra-logo img,
+     .sopra-logo-top img {
+       height: 5rem;
+       max-width: 400px;
+     }
+   }
+   

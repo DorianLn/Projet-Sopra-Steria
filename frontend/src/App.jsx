@@ -4,6 +4,7 @@ import Home from './pages/Home/Home';
 import Start from './pages/Start/Start';
 import HowItWorks from './pages/HowItWorks/HowItWorks';
 import Example from './pages/Example/Example';
+import './styles/index.css'
 
 
 const App = () => {

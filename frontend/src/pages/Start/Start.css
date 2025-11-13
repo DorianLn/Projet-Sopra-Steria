@@ -227,3 +227,246 @@
 .submit-button:hover svg {
   transform: translateX(0.25rem);
 }
+
+.result-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.result-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.06);
+  border-left: 5px solid #d53f8c; /* gradient-like accent */
+  transition: 0.2s;
+}
+
+.result-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.result-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #2d3748;
+}
+
+.result-list li {
+  padding: 3px 0;
+}
+/* --- Dashboard résultats --- */
+
+.result-section {
+  margin-top: 2.5rem;
+}
+
+/* Bandeau top : score + niveau + export */
+.result-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ff8a5c, #ff5470);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(255, 84, 112, 0.35);
+}
+
+.score-block {
+  min-width: 220px;
+}
+
+.score-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.score-value {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.score-bar {
+  margin-top: 0.4rem;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.3);
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.xp-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.xp-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.xp-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.18);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.1);
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #fff;
+  transition: 0.15s;
+}
+
+.export-btn:hover {
+  background: rgba(255,255,255,0.25);
+  transform: translateY(-1px);
+}
+
+/* Grille cartes */
+.result-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+/* Card générique */
+.result-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.4rem 1.5rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  border-left: 5px solid transparent;
+  background-image:
+    linear-gradient(#fff, #fff),
+    linear-gradient(135deg, #ff8a5c, #ff5470);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.result-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+}
+
+.result-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1f2933;
+}
+
+.result-list li {
+  padding: 3px 0;
+}
+
+/* Tags compétences */
+.skills-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.skill-tag {
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: #f5f3ff;
+  color: #4c1d95;
+  font-size: 0.8rem;
+  border: 1px solid #e5defc;
+}
+
+/* Radar */
+.radar-card canvas {
+  max-height: 260px;
+}
+
+/* CV Preview */
+.cv-preview-card {
+  grid-column: 1 / -1;
+}
+
+.cv-preview-body {
+  border-radius: 12px;
+  border: 1px dashed #e5e7eb;
+  padding: 1rem 1.2rem;
+  background: #fafafa;
+}
+
+.cv-preview-body h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.cv-preview-body h5 {
+  margin-top: 0.7rem;
+  font-weight: 600;
+}
+
+.cv-preview-body ul {
+  margin-left: 1.1rem;
+}
+
+.cv-preview-contact {
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .result-toolbar {
+    align-items: flex-start;
+  }
+
+  .export-buttons {
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: 0.4rem;
+  }
+}
+

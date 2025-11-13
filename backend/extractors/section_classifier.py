@@ -4,6 +4,9 @@ import dateparser
 from rich.console import Console
 from rich.table import Table
 from backend.extractors.spacy_extractor import extraire_entites
+import json
+import os
+from datetime import datetime
 
 console = Console()
 
@@ -74,7 +77,7 @@ def extract_date_spans(text: str):
                 if dp:
                     parsed = dp.date().isoformat()
 
-                    # 🩹 Filtrer les dates du jour (erreur fréquente de dateparser)
+                    #  Filtrer les dates du jour (erreur fréquente de dateparser)
                     if parsed.endswith("-11-12") or parsed.endswith("-11-11"):
                         continue
             except Exception:
@@ -129,7 +132,7 @@ def nettoyer_organisations(entites_org):
     nettoyees = []
     for org in entites_org:
         org_clean = re.sub(r'\s+', ' ', org.strip())
-        morceaux = re.split(r'(?:(?:19|20)\d{2}|[\-–—])', org_clean)
+        morceaux = re.split(r'[\-–—](?!\s*(?:19|20)\d{2})', org_clean)
         for part in morceaux:
             part = part.strip(" -–—.,;")
             if len(part) > 2 and part.lower() not in STOP_ORG:
@@ -250,10 +253,9 @@ def build_structured_json(emails, telephones, adresses, dates, texte_cv):
     entites = extraire_entites(texte_cv)
     entites["organisations"] = nettoyer_organisations(entites.get("organisations", []))
 
-    #  Nom
+    # === Nom ===
     nom = entites["noms"][0] if entites.get("noms") else None
 
-    #  Si spaCy renvoie un nom pollué ("Thomas Dupont Développeur"), on nettoie
     if nom:
         nom = re.sub(
             r"\b(?:développeur|developer|ingénieur|consultant|manager|full\s*stack|data|web|chef)\b.*",
@@ -262,7 +264,6 @@ def build_structured_json(emails, telephones, adresses, dates, texte_cv):
             flags=re.IGNORECASE
         ).strip()
 
-    #  Sinon on applique la logique de fallback habituelle
     if not nom:
         lignes = [l.strip() for l in texte_cv.splitlines()[:10] if len(l.strip()) > 3]
         for l in lignes:
@@ -278,6 +279,7 @@ def build_structured_json(emails, telephones, adresses, dates, texte_cv):
                 ).strip()
                 break
 
+    # === Contact ===
     contact = {
         "nom": nom,
         "email": emails[0] if emails else None,
@@ -285,6 +287,7 @@ def build_structured_json(emails, telephones, adresses, dates, texte_cv):
         "adresse": adresses[0] if adresses else None,
     }
 
+    # === Sections ===
     formations, experiences = classifier_formations_experiences(texte_cv, entites, dates)
     comp_kw, lang_kw = extraire_competences_langues(texte_cv)
     comp_sec = parse_section_competences(texte_cv)
@@ -294,19 +297,61 @@ def build_structured_json(emails, telephones, adresses, dates, texte_cv):
     loisirs = parse_section_loisirs(texte_cv)
     dispo = parse_disponibilite(texte_cv)
 
-    def clean_list(l):
-        seen, out = set(), []
-        for x in l:
-            x = x.strip()
-            if x and x.lower() not in seen:
-                seen.add(x.lower())
-                out.append(x)
+    # === Nettoyage des listes ===
+    def clean_list(values):
+        out = []
+        seen = set()
+        for x in values:
+            if not x:
+                continue
+            x_norm = x.strip().lower()
+            if x_norm not in seen:
+                seen.add(x_norm)
+                out.append(x.strip().capitalize())
         return out
 
-    competences = clean_list(entites.get("competences", []) + comp_kw + comp_sec)
-    langues = clean_list(entites.get("langues", []) + lang_kw + lang_sec)
+    competences = clean_list(
+        entites.get("competences", []) +
+        comp_kw +
+        comp_sec
+    )
 
-    # 🧾 Résumé console
+    langues = clean_list(
+        entites.get("langues", []) +
+        lang_kw +
+        lang_sec
+    )
+
+    # === Construction du JSON final ===
+    json_final = {
+        "contact": contact,
+        "formations": formations,
+        "experiences": experiences,
+        "competences": sorted(competences),
+        "langues": sorted(langues),
+        "projets": projets,
+        "certifications": certifs,
+        "loisirs": loisirs,
+        "disponibilite": dispo,
+        "dates": dates,
+    }
+
+    # === Sauvegarde dans /data/output ===
+    def save_to_output_folder(json_data):
+        output_dir = "data/output"
+        os.makedirs(output_dir, exist_ok=True)
+
+        filename = f"cv_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        path = os.path.join(output_dir, filename)
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, indent=4, ensure_ascii=False)
+
+        print(f"\n📁 Résultat JSON enregistré ici : {path}\n")
+
+    save_to_output_folder(json_final)
+
+    # === Affichage console ===
     table = Table(title="Résultats d'analyse du CV", show_header=True, header_style="bold magenta")
     table.add_column("Section", style="cyan", no_wrap=True)
     table.add_column("Contenu principal", style="white")
@@ -324,15 +369,4 @@ def build_structured_json(emails, telephones, adresses, dates, texte_cv):
     table.add_row("📅 Disponibilité", dispo or "—")
     console.print(table)
 
-    return {
-        "contact": contact,
-        "formations": formations,
-        "experiences": experiences,
-        "competences": sorted(competences),
-        "langues": sorted(langues),
-        "projets": projets,
-        "certifications": certifs,
-        "loisirs": loisirs,
-        "disponibilite": dispo,
-        "dates": dates,
-    }
+    return json_final

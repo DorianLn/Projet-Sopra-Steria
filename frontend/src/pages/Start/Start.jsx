@@ -1,8 +1,238 @@
 import React, { useState } from 'react';
 import Navbar from '../../components/Navbar';
 import SopraLogo from '../../components/SopraLogo';
-import { Upload, FileText, ArrowRight } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  ArrowRight,
+  Download,
+  BarChart3,
+  FileDown,
+  Eye
+} from 'lucide-react';
+import {
+  Chart as ChartJS,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import { Radar } from 'react-chartjs-2';
 import './Start.css';
+
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+
+// ---- Helpers ----
+const computeExtractionScore = (result) => {
+  if (!result) return 0;
+  let score = 0;
+
+  const weights = {
+    contact: 25,
+    formations: 15,
+    experiences: 20,
+    competences: 20,
+    langues: 10,
+    projets: 5,
+    certifications: 3,
+    disponibilite: 2
+  };
+
+  if (result.contact?.nom && result.contact?.email) score += weights.contact;
+  if (result.formations?.length) score += weights.formations;
+  if (result.experiences?.length) score += weights.experiences;
+  if (result.competences?.length) score += weights.competences;
+  if (result.langues?.length) score += weights.langues;
+  if (result.projets?.length) score += weights.projets;
+  if (result.certifications?.length) score += weights.certifications;
+  if (result.disponibilite) score += weights.disponibilite;
+
+  // --- Penalties ---
+  let penalties = 0;
+
+  // Nom mal extrait (contient un métier ou trop de mots)
+  if (result.contact?.nom && /développeur|ingénieur|chef|manager/i.test(result.contact.nom)) {
+    penalties += 10;
+  }
+
+  // Dates incohérentes
+  result.experiences?.forEach((exp) => {
+    const years = exp.dates?.match(/(19|20)\d{2}/g);
+    if (years && years.length === 2) {
+      if (parseInt(years[1]) < parseInt(years[0])) penalties += 8;
+    }
+  });
+
+  // Exp sans dates
+  const emptyDatesCount = result.experiences?.filter(e => !e.dates)?.length || 0;
+  penalties += emptyDatesCount * 5;
+
+  // Doublons entreprises
+  const entreprises = new Set();
+  result.experiences?.forEach(e => {
+    if (entreprises.has(e.entreprise)) penalties += 5;
+    entreprises.add(e.entreprise);
+  });
+
+  score -= penalties;
+
+  return Math.max(0, Math.min(100, score));
+};
+
+const computeProfessionalCvScore = (result) => {
+  if (!result) return 0;
+  let score = 0;
+
+  // 1) Richesse compétences
+  const comp = result.competences || [];
+  const hasBackend = comp.some(c => /python|java|spring|node|django|c\+\+/i.test(c));
+  const hasFrontend = comp.some(c => /react|angular|vue|html|css|javascript/i.test(c));
+  const hasCloud = comp.some(c => /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd/i.test(c));
+  const hasSoft = comp.some(c => /communication|leadership|gestion/i.test(c));
+
+  score += (hasBackend + hasFrontend + hasCloud + hasSoft) * 5; // max 20
+
+  // 2) Expérience totale
+  const years = estimateExperienceLevel(result).years;
+  if (years >= 7) score += 20;
+  else if (years >= 4) score += 15;
+  else if (years >= 2) score += 10;
+  else if (years >= 1) score += 5;
+
+  // 3) Études
+  const formations = result.formations || [];
+  if (formations.some(f => /master|bac\+5|ingénieur/i.test(f.etablissement))) score += 15;
+  else if (formations.some(f => /licence|bac\+3/i.test(f.etablissement))) score += 10;
+  else if (formations.length) score += 5;
+
+  // 4) Projets / réalisations
+  if (result.projets?.length >= 3) score += 10;
+  else if (result.projets?.length === 2) score += 7;
+  else if (result.projets?.length === 1) score += 4;
+
+  // 5) Langues
+  if (result.langues?.length >= 2) score += 10;
+  else if (result.langues?.length === 1) score += 5;
+
+  // 6) Cohérence globale
+  let coherence = 15;
+
+  // incohérence simple : dates inversées
+  result.experiences?.forEach((exp) => {
+    const years = exp.dates?.match(/(19|20)\d{2}/g);
+    if (years && years.length === 2 && parseInt(years[1]) < parseInt(years[0])) {
+      coherence -= 5;
+    }
+  });
+
+  score += Math.max(0, coherence);
+
+  // 7) Structure claire
+  const structureSections =
+    (result.contact ? 1 : 0) +
+    (result.formations?.length ? 1 : 0) +
+    (result.experiences?.length ? 1 : 0) +
+    (result.competences?.length ? 1 : 0);
+
+  score += structureSections * 3; // max 12
+
+  return Math.min(100, score);
+};
+
+
+const estimateExperienceLevel = (result) => {
+  if (!result?.experiences?.length) return { label: 'Non déterminé', years: 0 };
+
+  let minYear = 9999;
+  let maxYear = 0;
+
+  const extractYear = (str) => {
+    if (!str) return null;
+    const range = str.match(/(19|20)\d{2}.*(19|20)\d{2}/);
+    if (range) {
+      const years = str.match(/(19|20)\d{2}/g);
+      if (years && years.length >= 2) {
+        return { start: parseInt(years[0], 10), end: parseInt(years[1], 10) };
+      }
+    }
+    const single = str.match(/(19|20)\d{2}/);
+    if (single) {
+      const y = parseInt(single[0], 10);
+      return { start: y, end: y };
+    }
+    return null;
+  };
+
+  result.experiences.forEach((exp) => {
+    const parsed = extractYear(exp.dates);
+    if (parsed) {
+      minYear = Math.min(minYear, parsed.start);
+      maxYear = Math.max(maxYear, parsed.end);
+    }
+  });
+
+  if (minYear === 9999 || maxYear === 0) return { label: 'Non déterminé', years: 0 };
+  const years = Math.max(0, maxYear - minYear + 1);
+
+  let label = 'Junior';
+  if (years >= 5) label = 'Senior';
+  else if (years >= 2) label = 'Intermédiaire';
+
+  return { label, years };
+};
+
+const buildRadarData = (result) => {
+  const competences = (result?.competences || []).slice(0, 7); // max 7 axes
+  if (!competences.length) {
+    return {
+      labels: ['Compétences'],
+      datasets: [
+        {
+          label: 'Compétences',
+          data: [1]
+        }
+      ]
+    };
+  }
+
+  // on met toutes les valeurs à 3 pour un rendu équilibré
+  const values = competences.map(() => 3);
+
+  return {
+    labels: competences,
+    datasets: [
+      {
+        label: 'Compétences clés',
+        data: values,
+        backgroundColor: 'rgba(255, 88, 120, 0.2)',
+        borderColor: 'rgba(214, 46, 92, 0.9)',
+        borderWidth: 2,
+        pointRadius: 3
+      }
+    ]
+  };
+};
+
+const downloadJson = (result) => {
+  const blob = new Blob([JSON.stringify(result, null, 2)], {
+    type: 'application/json'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cv_analyse.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+const exportPdf = () => {
+  // version simple : impression de la page (l’utilisateur peut choisir "Enregistrer en PDF")
+  window.print();
+};
 
 const Start = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -52,7 +282,7 @@ const Start = () => {
     try {
       const response = await fetch('http://localhost:5000/api/cv/analyze', {
         method: 'POST',
-        body: formData,
+        body: formData
       });
 
       const data = await response.json();
@@ -65,6 +295,11 @@ const Start = () => {
       setLoading(false);
     }
   };
+
+  const extractionScore = computeExtractionScore(result);
+  const professionalScore = computeProfessionalCvScore(result);
+  const xpInfo = estimateExperienceLevel(result);
+  const radarData = buildRadarData(result);
 
   return (
     <div className="start-page">
@@ -138,65 +373,278 @@ const Start = () => {
 
           {/* Résultat affiché */}
           {result && (
-            <div className="result-section text-left mt-10 p-6 bg-white shadow-lg rounded-xl space-y-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Résultats de l’analyse</h2>
+            <div className="result-section text-left mt-10">
 
-              {/* Contact */}
-              {result.contact && (
-                <div>
-                  <h3 className="font-semibold text-gray-700">📞 Contact</h3>
-                  <ul className="list-disc list-inside text-gray-600">
-                    {result.contact.nom && <li>Nom : {result.contact.nom}</li>}
-                    {result.contact.email && <li>Email : {result.contact.email}</li>}
-                    {result.contact.telephone && <li>Téléphone : {result.contact.telephone}</li>}
-                    {result.contact.adresse && <li>Adresse : {result.contact.adresse}</li>}
+              {/* Barre d’outils / résumé */}
+              <div className="result-toolbar">
+
+                {/* Score extraction */}
+                <div className="score-block">
+                  <span className="score-label">Fiabilité extraction</span>
+                  <div className="score-value">
+                    <BarChart3 size={18} />
+                    <span>{extractionScore}%</span>
+                    </div>
+                  <div className="score-bar">
+                    <div
+                      className="score-bar-fill"
+                      style={{ width: `${extractionScore}%` }}
+                      />
+                  </div>
+                  
+                  {/* Score Pro */}
+                  <div className="score-block">
+                  <span className="score-label">Score CV Pro</span>
+                  <div className="score-value">
+                    <BarChart3 size={18} />
+                    <span>{professionalScore}%</span>
+                  </div>
+                  <div className="score-bar">
+                    <div
+                      className="score-bar-fill"
+                      style={{ width: `${professionalScore}%` }}
+                    />
+                  </div>
+                </div>
+                </div>
+
+                {/* XP */}
+                <div className="xp-block">
+                  <span className="xp-label">Niveau d’expérience</span>
+                  <span className="xp-pill">
+                    {xpInfo.label} {xpInfo.years > 0 && `(${xpInfo.years} ans estimés)`}
+                  </span>
+                </div>
+
+                <div className="export-buttons">
+                  <button
+                    className="export-btn"
+                    onClick={() => downloadJson(result)}
+                  >
+                    <Download size={16} />
+                    JSON
+                  </button>
+                  <button
+                    className="export-btn"
+                    onClick={() => {
+                      if (!result?.pdf_filename) {
+                        alert("Aucun PDF généré par le backend.");
+                        return;
+                      }
+                      window.open(`http://localhost:5000/api/cv/pdf/${result.pdf_filename}`, "_blank");
+                    }}
+                  >
+                    <FileDown size={16} />
+                    PDF
+                  </button>
+
+                </div>
+              </div>
+
+              {/* Grille principale */}
+              <div className="result-wrapper">
+
+                {/* CONTACT */}
+                <div className="result-card">
+                  <h3 className="result-title">📞 Contact</h3>
+                  <ul className="result-list text-gray-700">
+                    {result.contact.nom && <li><strong>Nom :</strong> {result.contact.nom}</li>}
+                    {result.contact.email && <li><strong>Email :</strong> {result.contact.email}</li>}
+                    {result.contact.telephone && <li><strong>Téléphone :</strong> {result.contact.telephone}</li>}
+                    {result.contact.adresse && <li><strong>Adresse :</strong> {result.contact.adresse}</li>}
                   </ul>
                 </div>
-              )}
 
-              {/* Formations */}
-              {result.formations?.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-700">🎓 Formations</h3>
-                  <ul className="list-disc list-inside text-gray-600">
-                    {result.formations.map((f, i) => (
-                      <li key={i}>{f.etablissement} - {f.dates}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                {/* FORMATIONS */}
+                {result.formations?.length > 0 && (
+                  <div className="result-card">
+                    <h3 className="result-title">🎓 Formations</h3>
+                    <ul className="result-list text-gray-700">
+                      {result.formations.map((f, i) => (
+                        <li key={i}><strong>{f.etablissement}</strong> — {f.dates}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-              {/* Expériences */}
-              {result.experiences?.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-700">💼 Expériences</h3>
-                  <ul className="list-disc list-inside text-gray-600">
-                    {result.experiences.map((exp, i) => (
-                      <li key={i}>{exp.entreprise} - {exp.dates}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                {/* EXPERIENCES */}
+                {result.experiences?.length > 0 && (
+                  <div className="result-card">
+                    <h3 className="result-title">💼 Expériences</h3>
+                    <ul className="result-list text-gray-700">
+                      {result.experiences.map((e, i) => (
+                        <li key={i}>
+                          <strong>{e.entreprise}</strong> — {e.poste || '—'} ({e.dates})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-              {/* Compétences */}
-              {result.competences?.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-700">🧠 Compétences</h3>
-                  <ul className="list-disc list-inside text-gray-600">
-                    {result.competences.map((c, i) => <li key={i}>{c}</li>)}
-                  </ul>
-                </div>
-              )}
+                {/* PROJETS */}
+                {result.projets?.length > 0 && (
+                  <div className="result-card">
+                    <h3 className="result-title">🚀 Projets</h3>
+                    <ul className="result-list text-gray-700">
+                      {result.projets.map((p, i) => <li key={i}>{p}</li>)}
+                    </ul>
+                  </div>
+                )}
+                
+                {/* COMPETENCES (tags + radar) */}
+                {result.competences?.length > 0 && (
+                  <div className="result-card">
+                    <h3 className="result-title">🧠 Compétences</h3>
+                    <div className="skills-tags">
+                      {result.competences.map((c, i) => (
+                        <span key={i} className="skill-tag">{c}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              {/* Langues */}
-              {result.langues?.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-700">🌍 Langues</h3>
-                  <ul className="list-disc list-inside text-gray-600">
-                    {result.langues.map((l, i) => <li key={i}>{l}</li>)}
-                  </ul>
+                {/* RADAR COMPETENCES */}
+                {result.competences?.length > 0 && (
+                  <div className="result-card radar-card">
+                    <h3 className="result-title">
+                      <BarChart3 size={18} /> Radar des compétences
+                    </h3>
+                    <Radar
+                      data={radarData}
+                      options={{
+                        responsive: true,
+                        scales: {
+                          r: {
+                            suggestedMin: 0,
+                            suggestedMax: 5,
+                            ticks: { stepSize: 1 }
+                          }
+                        },
+                        plugins: {
+                          legend: { display: false }
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* LANGUES */}
+                {result.langues?.length > 0 && (
+                  <div className="result-card">
+                    <h3 className="result-title">🌍 Langues</h3>
+                    <ul className="result-list text-gray-700">
+                      {result.langues.map((l, i) => <li key={i}>{l}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {/* CERTIFICATIONS */}
+                {result.certifications?.length > 0 && (
+                  <div className="result-card">
+                    <h3 className="result-title">🏅 Certifications</h3>
+                    <ul className="result-list text-gray-700">
+                      {result.certifications.map((c, i) => <li key={i}>{c}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {/* LOISIRS */}
+                {result.loisirs?.length > 0 && (
+                  <div className="result-card">
+                    <h3 className="result-title">🎯 Loisirs</h3>
+                    <ul className="result-list text-gray-700">
+                      {result.loisirs.map((l, i) => <li key={i}>{l}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {/* DISPONIBILITE */}
+                {result.disponibilite && (
+                  <div className="result-card">
+                    <h3 className="result-title">📅 Disponibilité</h3>
+                    <p className="text-gray-700">{result.disponibilite}</p>
+                  </div>
+                )}
+
+                {/* DATES BRUTES */}
+                {result.dates?.length > 0 && (
+                  <div className="result-card">
+                    <h3 className="result-title">🗂 Dates détectées</h3>
+                    <ul className="result-list text-gray-700">
+                      {result.dates.map((d, i) => <li key={i}>{d}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {/* CV RECONSTITUÉ */}
+                <div className="result-card cv-preview-card">
+                  <h3 className="result-title">
+                    <Eye size={18} /> CV reconstitué (vue synthèse)
+                  </h3>
+                  <div className="cv-preview-body">
+                    <h4>{result.contact.nom}</h4>
+                    <p className="cv-preview-contact">
+                      {result.contact.email} ··· {result.contact.telephone} ··· {result.contact.adresse}
+                    </p>
+
+                    {result.formations?.length > 0 && (
+                      <>
+                        <h5>Formations</h5>
+                        <ul>
+                          {result.formations.map((f, i) => (
+                            <li key={i}>
+                              <strong>{f.etablissement}</strong> — {f.dates}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+
+                    {result.experiences?.length > 0 && (
+                      <>
+                        <h5>Expériences</h5>
+                        <ul>
+                          {result.experiences.map((e, i) => (
+                            <li key={i}>
+                              <strong>{e.entreprise}</strong> — {e.poste || '—'} ({e.dates})
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+
+                    {result.projets?.length > 0 && (
+                      <>
+                        <h5>Projets</h5>
+                        <ul>
+                          {result.projets.map((p, i) => <li key={i}>{p}</li>)}
+                        </ul>
+                      </>
+                    )}
+
+                    {result.competences?.length > 0 && (
+                      <>
+                        <h5>Compétences clés</h5>
+                        <p>{result.competences.join(' · ')}</p>
+                      </>
+                    )}
+
+                    {result.langues?.length > 0 && (
+                      <>
+                        <h5>Langues</h5>
+                        <p>{result.langues.join(' · ')}</p>
+                      </>
+                    )}
+
+                    {result.disponibilite && (
+                      <>
+                        <h5>Disponibilité</h5>
+                        <p>{result.disponibilite}</p>
+                      </>
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -217,7 +665,7 @@ const Start = () => {
             <div className="process-step">
               <div className="step-icon"><ArrowRight /></div>
               <h3 className="step-title">3. Résultat</h3>
-              <p className="step-description">Affichage structuré et clair</p>
+              <p className="step-description">Dashboard d’analyse structuré</p>
             </div>
           </div>
         </div>

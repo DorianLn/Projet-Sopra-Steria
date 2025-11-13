@@ -26,3 +26,7 @@ yarn-error.log*
 # System files
 .DS_Store
 Thumbs.db
+
+# Data folders (ne pas push les fichiers PDF/JSON générés)
+data/input/
+data/output/

@@ -11,52 +11,42 @@ def lire_cv_docx(chemin_fichier):
     doc = Document(chemin_fichier)
     return "\n".join([paragraph.text for paragraph in doc.paragraphs])
 
+def extraire_infos_cv(texte_cv):
+    """Retourne les données brutes extraites d'un texte de CV."""
+    return {
+        "dates": extraire_dates(texte_cv),
+        "emails": extraire_email(texte_cv),
+        "telephones": extraire_telephone(texte_cv),
+        "adresses": extraire_adresse(texte_cv)
+    }
+
+
 def analyser_cv():
-    # Chemins des dossiers
-    dossier_input = "data/input"
-    dossier_output = "data/output"
-    
-    # Assure que le dossier output existe
+    dossier_input = "backend/data/input"
+    dossier_output = "backend/data/output"
+
     os.makedirs(dossier_output, exist_ok=True)
-    
-    # Cherche les fichiers .docx dans le dossier input
+
     fichiers_cv = [f for f in os.listdir(dossier_input) if f.endswith('.docx')]
-    
     if not fichiers_cv:
-        print("Aucun CV (.docx) trouvé dans le dossier data/input")
+        print("Aucun CV (.docx) trouvé dans backend/data/input")
         return
-    
+
     for fichier in fichiers_cv:
-        print(f"\nAnalyse du CV : {fichier}")
         chemin_cv = os.path.join(dossier_input, fichier)
-        
-        # Lit le contenu du CV
         texte_cv = lire_cv_docx(chemin_cv)
-        
-        # Extrait les informations
-        resultats = {
-            "dates": extraire_dates(texte_cv),
-            "emails": extraire_email(texte_cv),
-            "telephones": extraire_telephone(texte_cv),
-            "adresses": extraire_adresse(texte_cv)
-        }
-        
-        # Crée le nom du fichier de sortie
-        nom_fichier_sortie = os.path.splitext(fichier)[0] + "_resultats.json"
-        chemin_sortie = os.path.join(dossier_output, nom_fichier_sortie)
-        
-        # Sauvegarde les résultats
+
+        # ➜ On utilise la fonction unique
+        resultats = extraire_infos_cv(texte_cv)
+
+        nom_json = os.path.splitext(fichier)[0] + "_resultats.json"
+        chemin_sortie = os.path.join(dossier_output, nom_json)
+
         with open(chemin_sortie, 'w', encoding='utf-8') as f:
-            json.dump(resultats, f, ensure_ascii=False, indent=2)
-        
-        # Affiche les résultats
-        print("\nRésultats trouvés :")
-        print("-" * 20)
-        print(f"Dates : {resultats['dates']}")
-        print(f"Emails : {resultats['emails']}")
-        print(f"Téléphones : {resultats['telephones']}")
-        print(f"Adresses : {resultats['adresses']}")
-        print(f"\nRésultats sauvegardés dans : {chemin_sortie}")
+            json.dump(resultats, f, indent=2, ensure_ascii=False)
+
+        print("Analyse OK →", chemin_sortie)
+
 
 if __name__ == "__main__":
     analyser_cv()

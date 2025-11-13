@@ -240,6 +240,44 @@ const Start = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [modifiedDocx, setModifiedDocx] = useState(null);
+
+// --- Conversion DOCX modifié en PDF ---
+  const convertDocxToPdf = async () => {
+    if (!modifiedDocx) {
+      alert("Veuillez sélectionner un fichier .docx modifié.");
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append("file", modifiedDocx);
+  
+    try {
+      const response = await fetch("http://localhost:5000/api/cv/convert", {
+        method: "POST",
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Erreur lors de la conversion");
+      }
+  
+      // Récupérer le PDF retourné
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+  
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "CV_Final.pdf";
+      a.click();
+  
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Erreur : " + e.message);
+    }
+  };
+  
 
   // --- Gestion du drag & drop ---
   const handleDrag = (e) => {
@@ -420,7 +458,7 @@ const Start = () => {
                   <button
                     className="export-btn"
                     onClick={() => downloadJson(result)}
-                  >
+                    >
                     <Download size={16} />
                     JSON
                   </button>
@@ -438,7 +476,50 @@ const Start = () => {
                     PDF
                   </button>
 
-                </div>
+                  <button
+                    className="export-btn"
+                    onClick={() => {
+                      if (!result?.json_filename) {
+                        alert("Aucun JSON trouvé pour générer le Word.");
+                        return;
+                      }
+
+                      const baseName = result.json_filename.replace(".json", "");
+
+                      window.open(
+                        `http://localhost:5000/api/cv/docx/${baseName}`,
+                        "_blank"
+                      );
+                    }}
+                  >
+                    <FileText size={16} />
+                    DOCX
+                  </button>
+                  {/* Sélection du CV Word modifié */}
+                  <input
+                    type="file"
+                    accept=".docx"
+                    style={{ display: "none" }}
+                    id="upload-modified-docx"
+                    onChange={(e) => setModifiedDocx(e.target.files[0])}
+                  />
+
+                  <label htmlFor="upload-modified-docx" className="export-btn">
+                    <Upload size={16} />
+                    Importer DOCX modifié
+                  </label>
+
+                  {/* Convertir en PDF */}
+                  <button
+                    className="export-btn"
+                    onClick={convertDocxToPdf}
+                    disabled={!modifiedDocx}
+                  >
+                    <FileDown size={16} />
+                    Convertir en PDF
+                  </button>
+
+                                  </div>
               </div>
 
               {/* Grille principale */}

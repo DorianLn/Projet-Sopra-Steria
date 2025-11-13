@@ -1,126 +1,262 @@
-# Analyse du Backend - Projet Extraction de CV
+# **Analyse du Backend – Projet Sopra Extraction & Génération Automatique de CV**
 
-## Fonctionnement Global
-Le backend est conçu pour traiter et analyser des CV au format PDF ou DOCX. Il s'articule autour de trois fonctionnalités principales :
-1. La conversion de fichiers PDF en DOCX
-2. L'extraction d'informations via des expressions régulières
-3. Une API RESTful pour l'interaction avec le frontend
+##  Fonctionnement Global
 
-## Structure du Backend
+Le backend gère un pipeline complet d’analyse et de génération de CV :
+
+1. **Upload d’un CV (PDF/DOCX)**
+2. **Conversion PDF → DOCX (si nécessaire)**
+3. **Extraction des informations**
+
+   * Regex (emails, dates, téléphones, adresses)
+   * spaCy (personnes, organisations)
+   * classifier maison (sections : formations, expériences…)
+4. **Construction d’un JSON structuré**
+5. **Génération automatique d’un CV PDF au format Sopra Steria**
+6. **Téléchargement au format PDF ou DOCX**
+7. **Conversion d’un DOCX modifié → PDF**
+
+---
+
+##  Structure Actuelle du Backend
+
 ```
-backend/
-├── api.py
-└── extractors/
-    ├── extracteur.py
-    ├── pdf_to_docx.py
-    ├── section_classifier.py
-    └── spacy_extractor.py
+   backend/
+   │── api.py
+   │── requirements.txt
+   │
+   ├── data/
+   │   ├── input/
+   │   └── output/
+   │
+   ├── extractors/
+   │   ├── extracteur.py
+   │   ├── pdf_to_docx.py
+   │   ├── section_classifier.py
+   │   └── spacy_extractor.py
+   │
+   ├── generators/
+   │   ├── generate_sopra_docx.py
+   │   ├── pdf_sopra_profile.py
+   │   └── docx_to_pdf.py
+   │
+   └── analyser_cv.py
 ```
 
-## Analyse des Fichiers
+---
 
-### 1. api.py
-**Rôle** : Point d'entrée principal de l'API, gère les requêtes HTTP et orchestre le traitement des CV.
+#  Analyse des Modules
 
-**Fonctionnalités principales** :
-- Configuration de Flask et CORS
-- Gestion des uploads de fichiers
-- Point d'entrée `/api/cv/analyze` pour l'analyse des CV
-- Gestion des erreurs et des réponses
+---
 
-**Méthodes clés** :
-- `allowed_file(filename)` : Vérifie si l'extension du fichier est autorisée
-- `process_cv(file_path)` : Traite le CV et retourne les résultats structurés
-- `analyze_cv()` : Point d'entrée API pour l'analyse des CV
+## 1️ **api.py**
 
-### 2. extractors/extracteur.py
-**Rôle** : Contient les fonctions d'extraction d'informations basées sur les expressions régulières.
+==> *Le cœur du backend, gère toute la logique API.*
 
-**Méthodes principales** :
-- `extraire_dates(texte)` : Extrait les dates dans différents formats
-- `extraire_email(texte)` : Extrait les adresses email
-- `extraire_telephone(texte)` : Extrait les numéros de téléphone
-- `extraire_adresse(texte)` : Extrait les adresses postales
-- `dedupliquer(liste)` : Élimine les doublons tout en préservant l'ordre
+### **Rôle**
 
-### 3. extractors/pdf_to_docx.py
-**Rôle** : Gère la conversion des fichiers PDF en format DOCX.
+* Réception du fichier depuis React
+* Conversion PDF → DOCX
+* Extraction + classification + structuration JSON
+* Génération du PDF Sopra
+* Routes de téléchargement DOCX & PDF
+* Conversion DOCX → PDF
 
-**Fonctionnalités** :
-- Conversion PDF vers DOCX avec préservation du texte
-- Système de logging pour le suivi des opérations
-- Gestion des erreurs
+### **Routes principales**
 
-**Méthode principale** :
-- `convert_pdf_to_docx(pdf_path, docx_path)` : Convertit un PDF en DOCX
+| Route                     | Méthode | Description                                |
+| ------------------------- | ------- | ------------------------------------------ |
+| `/api/cv/analyze`         | POST    | Analyse un CV et génère un PDF automatique |
+| `/api/cv/docx/<filename>` | GET     | Re-crée un DOCX à partir du JSON           |
+| `/api/cv/convert`         | POST    | Convertit un DOCX envoyé → PDF             |
+| `/api/cv/pdf/<filename>`  | GET     | Télécharge un PDF existant ou le régénère  |
 
-## Points Forts
+### **Forces**
 
-1. **Architecture Modulaire**
-   - Séparation claire des responsabilités
-   - Facilité de maintenance et d'extension
-   - Code bien organisé en modules distincts
+* Compatible PDF & DOCX
+* Nettoyage automatique des fichiers temporaires
+* Sécurisé (secure_filename, extensions filtrées)
+* Utilise une structure de dossier propre : `data/input` / `data/output`
 
-2. **Sécurité**
-   - Validation des types de fichiers
-   - Nettoyage des noms de fichiers
-   - Suppression automatique des fichiers temporaires
+---
 
-3. **Robustesse**
-   - Gestion des erreurs à plusieurs niveaux
-   - Logging détaillé des opérations
-   - Validation des entrées
+## 2️ **extractors/extracteur.py**
 
-4. **Performance**
-   - Traitement en local
-   - Dédoublonnage efficace des résultats
-   - Optimisation des expressions régulières
+==> *Module d’extraction basé sur regex.*
 
-5. **Flexibilité**
-   - Support de plusieurs formats (PDF, DOCX)
-   - Expressions régulières adaptables
-   - API RESTful extensible
+### Fonctions
 
-## Points Faibles
+* `extraire_dates(texte)`
+* `extraire_email(texte)`
+* `extraire_telephone(texte)`
+* `extraire_adresse(texte)`
+* `dedupliquer(liste)`
 
-1. **Limitations Techniques**
-   - Pas de support pour d'autres formats (images, autres formats de documents)
-   - Extraction basée uniquement sur les expressions régulières (pas d'IA/ML)
-   - Pas de mise en cache des résultats
+### Points clés
 
-2. **Gestion des Données**
-   - Pas de système de persistance des données
-   - Pas de gestion des sessions utilisateurs
-   - Absence de base de données
+* Nettoyage automatique
+* Normalisation (dates, téléphones)
+* Extraction multi-format
 
-3. **Validation et Tests**
-   - Manque de tests unitaires
-   - Pas de validation approfondie des données extraites
-   - Absence de métriques de performance
+---
 
-4. **Documentation**
-   - Documentation technique limitée
-   - Absence de documentation API (Swagger/OpenAPI)
-   - Manque d'exemples d'utilisation
+## 3️ **extractors/pdf_to_docx.py**
 
-5. **Évolutivité**
-   - Pas de gestion des traitements asynchrones
-   - Absence de queue de traitement pour les fichiers volumineux
-   - Pas de mécanisme de rate limiting
+==> *Convertit les PDF en DOCX pour normaliser le pipeline.*
 
-## Recommandations d'Amélioration
+### Détails
 
-1. **Court terme**
-   - Ajouter des tests unitaires
-   - Implémenter une documentation API
-   - Ajouter une validation plus poussée des données extraites
+* Utilise `docx2pdf` ou `pdfplumber`
+* Gestion des erreurs robustes
+* Retourne False en cas d'échec (sécurise l’API)
 
-2. **Moyen terme**
-   - Intégrer spaCy pour l'analyse NLP
-   - Ajouter une base de données pour la persistance
-   - Implémenter un système de cache
+---
 
-3. **Long terme**
-   - Développer des modèles ML pour l'extraction
-   - Ajouter le support pour d'autres formats
-   - Mettre en place un système de traitement asynchrone
+## 4️ **extractors/spacy_extractor.py**
+
+### Utilisation spaCy
+
+* Extraction intelligente :
+  * PERSON
+  * ORG
+* Nettoyage des entités
+* Support complet pour le modèle `fr_core_news_md`
+
+---
+
+## 5️ **extractors/section_classifier.py**
+
+==> *Le module qui reconstruit un CV complet au format JSON structuré.*
+
+### Tâches :
+
+* Répartition automatique des lignes dans :
+
+  * expériences
+  * formations
+  * compétences
+  * langues
+  * projets
+  * certifications
+  * adresse & contact
+
+* Fusion regex + NLP + règles métier
+
+---
+
+## 6️ **generators/generate_sopra_docx.py**
+
+==> *Génère un CV DOCX stylé Sopra.*
+
+### Points forts :
+
+* Templates préconfigurés
+* Mise en page professionnelle
+* Support unicode et caractères français
+
+---
+
+## 7️ **generators/pdf_sopra_profile.py**
+
+==> *Génère un PDF clean directement depuis JSON.*
+
+* Couleurs Sopra Steria
+* Layout moderne
+* Sections normalisées
+
+---
+
+## 8️ **generators/docx_to_pdf.py**
+
+==> *Prend un DOCX modifié par l’utilisateur et génère un PDF propre.*
+
+* Utilise Word (COM) → ⚠️ nécessite `pythoncom.CoInitialize()`
+* Compatible Windows uniquement
+
+---
+
+#  Pipeline complet (backend)
+
+```
+   Upload React
+         ↓
+   POST /api/cv/analyze
+         ↓
+   convert_pdf_to_docx()
+         ↓
+   lire_cv_docx()
+         ↓
+   extraire_infos_cv()
+         ↓
+   build_structured_json()
+         ↓
+   Sauvegarde JSON → data/output
+         ↓
+   Génération PDF Sopra
+         ↓
+   Retour JSON + pdf_filename
+```
+
+---
+
+#  Points forts du backend
+
+### Très complet
+
+Extraction + NLP + structuration + génération PDF + DOCX + reconversion
+
+### Architecture professionnelle
+
+Modules propres, faciles à maintenir
+
+###  Pipelines robustes
+
+Suppression fichiers temporaires, gestion erreurs, try/except
+
+### Format JSON standardisé
+
+Pratique pour n’importe quel frontend
+
+---
+
+# ⚠️ Points faibles
+
+###  Dépendance Windows COM
+
+La conversion DOCX → PDF via Word ne fonctionne que sur Windows.
+
+###  spaCy chargé à chaque requête
+
+→ peut être optimisé via un chargement global
+
+###  Aucune base de données
+
+→ impossible de stocker des CV analysés automatiquement
+
+###  Pas d’API Swagger
+
+→ documentation moins accessible
+
+---
+
+#  Améliorations recommandées
+
+## Court terme
+
+* Ajouter un logging professionnel
+* Ajouter Swagger (Flask-Smorest ou flask-restx)
+* Charger spaCy une seule fois au lancement
+
+## Moyen terme
+
+* Stockage MongoDB ou PostgreSQL des CV traités
+* Système de cache (évite des traitements répétitifs)
+* Prévention des erreurs Word COM (via fallback libreoffice)
+
+## Long terme
+
+* Extraction via modèles ML (HuggingFace)
+* Interface d’entraînement maison
+* Traitement asynchrone (Celery + Redis)
+
+---

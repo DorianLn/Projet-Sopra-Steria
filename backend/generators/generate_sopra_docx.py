@@ -97,14 +97,14 @@ def generate_sopra_docx(cv_data, output_path):
     template_path = "templates/sopra_template.docx"
 
     if not os.path.exists(template_path):
-        raise FileNotFoundError("❌ Template DOCX introuvable")
+        raise FileNotFoundError(" Template DOCX introuvable")
 
     doc = Document(template_path)
 
     contact = cv_data.get("contact", {}) or {}
 
     # -------------------------
-    # 🟣 1) GRAND TITRE (Nom)
+    #  1) GRAND TITRE (Nom)
     # -------------------------
     title_paragraph = doc.paragraphs[0]
     title_paragraph.text = contact.get("nom", "Nom Prénom")

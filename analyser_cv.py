@@ -22,14 +22,14 @@ def extraire_infos_cv(texte_cv):
 
 
 def analyser_cv():
-    dossier_input = "backend/data/input"
-    dossier_output = "backend/data/output"
+    dossier_input = "data/input"
+    dossier_output = "data/output"
 
     os.makedirs(dossier_output, exist_ok=True)
 
     fichiers_cv = [f for f in os.listdir(dossier_input) if f.endswith('.docx')]
     if not fichiers_cv:
-        print("Aucun CV (.docx) trouvé dans backend/data/input")
+        print("Aucun CV (.docx) trouvé dans data/input")
         return
 
     for fichier in fichiers_cv:

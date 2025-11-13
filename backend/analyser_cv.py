@@ -4,7 +4,7 @@ Script pour extraire les informations d'un CV
 import os
 import json
 from docx import Document
-from backend.extractors.extracteur import extraire_dates, extraire_email, extraire_telephone, extraire_adresse
+from extractors.extracteur import extraire_dates, extraire_email, extraire_telephone, extraire_adresse
 
 def lire_cv_docx(chemin_fichier):
     """Lit le contenu d'un fichier .docx"""

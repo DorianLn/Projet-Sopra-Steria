@@ -93,6 +93,9 @@ L’application propose une interface intuitive permettant d’extraire automati
 👩‍💻 Safae
 👨‍💻 Nehade
 👨‍💻 Clément
+👨‍💻 Julien 
+👨‍💻 Dorian 
+👨‍💻 Thomas 
 ----------------------------------------------------------------------------------------------------------------
 # À propos du projet
 

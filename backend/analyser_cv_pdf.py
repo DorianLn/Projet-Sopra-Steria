@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
 from typing import List
-from backend.extractors.pdf_to_docx import convert_pdf_to_docx
+from extractors.pdf_to_docx import convert_pdf_to_docx
 from analyser_cv import lire_cv_docx, extraire_dates, extraire_email, extraire_telephone, extraire_adresse
 import json
-from backend.extractors.section_classifier import build_structured_json
+from extractors.section_classifier import build_structured_json
 
 def find_pdf_files(input_dir: str) -> List[Path]:
     """

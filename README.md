@@ -61,18 +61,17 @@ venv\Scripts\activate     # Windows
 ```bash
 pip install -r requirements.txt
 ```
+4. Installer Spacy 
+```bash
+python -m spacy download fr_core_news_md
 
-4. Installer les dépendances React
+```
+5. Installer les dépendances React
 ```bash
 cd frontend
 npm install
 ```
-3. Installer Spacy 
-```bash
-pip install -r requirements.txt
-python -m spacy download fr_core_news_md
 
-```
 
 ## 🚀 Utilisation
 

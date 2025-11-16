@@ -6,6 +6,9 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from generators.pdf_sopra_profile import generate_sopra_profile_pdf
 import json
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 
 # Ajoute le dossier parent au PYTHONPATH pour trouver analyser_cv.py
@@ -18,7 +21,7 @@ from extractors.section_classifier import build_structured_json
 app = Flask(__name__)
 CORS(app)  # Autorise les requêtes cross-origin
 
-UPLOAD_FOLDER = Path('backend/data/input')
+UPLOAD_FOLDER = Path('data/input')
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -29,12 +32,14 @@ def allowed_file(filename):
 
 def process_cv(file_path):
     try:
+        # Conversion si PDF → DOCX
         if file_path.suffix.lower() == '.pdf':
             temp_docx = file_path.parent / f"{file_path.stem}_temp.docx"
             if not convert_pdf_to_docx(str(file_path), str(temp_docx)):
                 return None, "Erreur PDF -> DOCX"
             file_path = temp_docx
 
+        # Lecture du DOCX
         texte_cv = lire_cv_docx(str(file_path))
 
         # Appel de la même fonction que le script CLI
@@ -92,9 +97,6 @@ def analyze_cv():
         file.save(str(file_path))
 
         results, error = process_cv(file_path)
-
-        if file_path.exists():
-            os.remove(file_path)
 
         if error:
             return jsonify({'success': False, 'error': error}), 500
@@ -164,10 +166,6 @@ def download_docx(filename):
 @app.route('/api/cv/convert', methods=['POST'])
 def convert_docx_to_pdf_route():
     from generators.docx_to_pdf import convert_docx_to_pdf
-    import pythoncom
-
-    # Initialise COM pour Word (obligatoire sous Windows)
-    pythoncom.CoInitialize()
 
     try:
         if 'file' not in request.files:
@@ -193,23 +191,18 @@ def convert_docx_to_pdf_route():
             download_name=f"{temp_docx.stem}_modified.pdf"
         )
 
-    finally:
-        # Libère COM
-        pythoncom.CoUninitialize()
-
 # -------------------------------------------------
-# ROUTE DOWNLOAD — VERSION CORRIGÉE
+#                ROUTE DOWNLOAD PDF
 # -------------------------------------------------
 @app.route('/api/cv/pdf/<filename>', methods=['GET'])
 def download_pdf(filename):
-    import json
     from generators.generate_sopra_docx import generate_sopra_docx
     from generators.docx_to_pdf import convert_docx_to_pdf
 
     base = Path("data/output")
 
     # -----------------------------------------------------
-    # 📌 MODE A — PDF déjà généré dans /analyze
+    #  MODE A — PDF déjà généré dans /analyze
     # -----------------------------------------------------
     if filename.endswith(".pdf"):
         pdf_path = base / filename
@@ -223,7 +216,7 @@ def download_pdf(filename):
         return jsonify({"error": "PDF déjà généré introuvable"}), 404
 
     # -----------------------------------------------------
-    # 📌 MODE B — Recréation du PDF à partir du JSON
+    #  MODE B — Recréation du PDF à partir du JSON
     # -----------------------------------------------------
     json_path = base / f"{filename}.json"
     docx_path = base / f"{filename}.docx"
@@ -250,4 +243,4 @@ def download_pdf(filename):
     )
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, use_reloader=False)

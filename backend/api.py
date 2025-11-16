@@ -191,6 +191,9 @@ def convert_docx_to_pdf_route():
             download_name=f"{temp_docx.stem}_modified.pdf"
         )
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # -------------------------------------------------
 #                ROUTE DOWNLOAD PDF
 # -------------------------------------------------

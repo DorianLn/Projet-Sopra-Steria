@@ -23,7 +23,8 @@ jobs:
             frontend:
               - 'frontend/**'
       - name: "Debug: List changed files"
-        run: echo "Changed files: ${{ steps.filter.outputs.files }}"
+        run: |
+          echo "Changed files: ${{ steps.filter.outputs.files }}"
 
   backend-ci:
     name: "Backend CI"

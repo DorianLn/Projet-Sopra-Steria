@@ -23,15 +23,16 @@ Cette tâche est la première à s'exécuter. Son unique rôle est de détecter 
 Cette tâche s'occupe de l'intégration continue pour la partie backend du projet.
 
 *   **Condition d'exécution** : Elle ne s'exécute que si la tâche `filter` a détecté des changements dans le répertoire `backend/`.
-*   **Environnement** : Elle s'exécute sur une machine virtuelle `ubuntu-latest` avec Python `3.11`.
+*   **Environnement** : Elle s'exécute sur une machine virtuelle `windows-latest` avec Python `3.11`. Le choix de Windows est nécessaire pour installer la dépendance `pywin32`.
 *   **Répertoire de travail** : Toutes les commandes sont exécutées depuis le répertoire `backend/`.
 *   **Étapes** :
     1.  **Checkout** : Récupération du code source du dépôt.
     2.  **Mise en place de Python** : Installation de la version `3.11` de Python.
-    3.  **Installation de pip** : Installation de la version `23.3.1` de `pip`.
+    3.  **Installation de pip** : Installation d'une version spécifique de `pip`.
     4.  **Installation des dépendances** : Installation des paquets Python listés dans le fichier `requirements.txt`.
-    5.  **Téléchargement du modèle Spacy** : Téléchargement du modèle linguistique `fr_core_news_sm` nécessaire à la bibliothèque Spacy.
-    6.  **Lancement des tests** : Exécution de la suite de tests avec `pytest`.
+    5.  **Téléchargement du modèle Spacy** : Téléchargement du modèle linguistique `fr_core_news_md` nécessaire à la bibliothèque Spacy.
+    6.  **Lancement des tests** : Exécution de la suite de tests avec `pytest`. Un fichier de test placeholder (`test_placeholder.py`) a été ajouté pour s'assurer que cette étape s'exécute correctement même en l'absence de tests métiers.
+
 
 ### 3. Tâche `frontend-ci`
 

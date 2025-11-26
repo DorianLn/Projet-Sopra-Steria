@@ -1,5 +1,5 @@
 import re
-# test commentaire
+# test commentaire 1
 def dedupliquer(liste):
     """Élimine les doublons tout en préservant l'ordre d'apparition"""
     return list(dict.fromkeys(liste))

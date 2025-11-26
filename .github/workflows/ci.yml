@@ -29,7 +29,7 @@ jobs:
     name: "Backend CI"
     needs: filter
     if: needs.filter.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: backend

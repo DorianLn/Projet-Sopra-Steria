@@ -241,8 +241,25 @@ const Start = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [modifiedDocx, setModifiedDocx] = useState(null);
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [consentVisible, setConsentVisible] = useState(true);
 
-// --- Conversion DOCX modifié en PDF ---
+  // --- Consentement RGPD ---
+  const handleConsent = () => {
+    setConsentGiven(true);
+    setConsentVisible(false);
+  };
+
+  const finalizeTransformation = () => {
+    setConsentGiven(false);
+    setConsentVisible(true);
+    setSelectedFile(null);
+    setResult(null);
+    setModifiedDocx(null);
+    setError(null);
+  };
+
+  // --- Conversion DOCX modifié en PDF ---
   const convertDocxToPdf = async () => {
     if (!modifiedDocx) {
       alert("Veuillez sélectionner un fichier .docx modifié.");
@@ -283,6 +300,7 @@ const Start = () => {
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!consentGiven) return;
     if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
     else if (e.type === 'dragleave') setDragActive(false);
   };
@@ -291,12 +309,20 @@ const Start = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    if (!consentGiven) {
+      alert("Veuillez accepter la récupération de votre CV avant de continuer.");
+      return;
+    }
     const file = e.dataTransfer.files[0];
     handleFileSelect({ target: { files: [file] } });
   };
 
   // --- Sélection du fichier ---
   const handleFileSelect = (event) => {
+    if (!consentGiven) {
+      alert("Veuillez accepter la récupération de votre CV avant de continuer.");
+      return;
+    }
     const file = event.target.files[0];
     if (file && (file.name.endsWith('.docx') || file.name.endsWith('.pdf'))) {
       setSelectedFile(file);
@@ -309,6 +335,10 @@ const Start = () => {
 
   // --- Soumission vers le backend ---
   const handleSubmit = async () => {
+    if (!consentGiven) {
+      alert('Vous devez accepter la collecte et le traitement de votre CV avant de lancer la transformation.');
+      return;
+    }
     if (!selectedFile) return alert('Veuillez sélectionner un fichier');
 
     const formData = new FormData();
@@ -352,8 +382,48 @@ const Start = () => {
             Téléversez votre CV (.docx ou .pdf) pour une extraction automatique des informations clés.
           </p>
 
+          {consentVisible ? (
+  <div className="consent-section mt-8 p-6 border border-gray-200 rounded-xl bg-white text-left">
+    <h2 className="text-lg font-semibold mb-3">Utilisation de votre CV et base légale</h2>
+    <p className="text-sm text-gray-700 leading-6">
+      En cliquant sur « J’autorise le traitement de mon CV », je déclare avoir lu et compris que :
+    </p>
+    <ul className="consent-list">
+      <li>
+        mon CV est collecté uniquement pour l’analyse automatique décrite, sur la base de mon consentement
+        explicite (article 6‑1‑a du RGPD) ;
+      </li>
+      <li>
+        le traitement est opéré localement sur mon poste : aucune donnée n’est transmise, conservée
+        ou partagée avec des tiers, et je peux retirer mon accord à tout moment ;
+      </li>
+      <li>
+        un nouveau consentement me sera demandé pour chaque CV distinct afin de garantir la minimisation
+        des données (articles 5 et 25 du RGPD).
+      </li>
+    </ul>
+    <button
+      type="button"
+      onClick={handleConsent}
+      className="consent-button"
+    >
+      J’autorise le traitement de mon CV dans ce cadre conforme au RGPD
+    </button>
+  </div>
+) : (
+  <div className="consent-badge">
+    Consentement accordé pour ce CV. Finalisez l’analyse pour traiter un nouveau document.
+  </div>
+)}
+
+          {!consentGiven && (
+            <p className="mt-4 text-sm text-red-500">
+              Veuillez confirmer votre consentement pour débloquer l’outil de transformation.
+            </p>
+          )}
+
           {/* Zone de téléchargement */}
-          <div className="mt-10 relative">
+          <div className={`mt-10 relative ${!consentGiven ? 'opacity-60 pointer-events-none' : ''}`}>
             <div
               className={`upload-zone ${dragActive ? 'drag-active' : ''}`}
               onDragEnter={handleDrag}
@@ -365,6 +435,7 @@ const Start = () => {
                 type="file"
                 accept=".docx,.pdf"
                 onChange={handleFileSelect}
+                disabled={!consentGiven}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               <div className="upload-content">
@@ -392,7 +463,7 @@ const Start = () => {
               <div className="submit-section">
                 <button
                   onClick={handleSubmit}
-                  disabled={loading}
+                  disabled={loading || !consentGiven}
                   className="submit-button"
                 >
                   {loading ? 'Analyse en cours...' : 'Analyser le CV'}

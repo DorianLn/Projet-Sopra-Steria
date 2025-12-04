@@ -1,5 +1,3 @@
-
-
 /* ===================== START PAGE ===================== */
 .start-page {
   min-height: 100vh;
@@ -455,6 +453,80 @@
 .cv-preview-contact {
   font-size: 0.85rem;
   color: #4b5563;
+}
+
+/* Consentement styles */
+.consent-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.consent-checkbox {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.consent-button {
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(90deg, #ff512f, #dd2476);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.consent-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.consent-badge {
+  margin-top: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 0.75rem;
+  background: #ecfdf5;
+  color: #065f46;
+  font-weight: 500;
+  text-align: center;
+}
+
+.consent-list {
+  margin: 0.75rem 0 1.5rem;
+  padding-left: 1.25rem;
+  color: #374151;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.consent-list li {
+  list-style: disc;
+  margin-bottom: 0.4rem;
+}
+
+.finalize-wrapper {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.finalize-button {
+  border: none;
+  border-radius: 0.65rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(90deg, #ff512f, #dd2476);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.finalize-button:hover {
+  opacity: 0.9;
 }
 
 /* Responsive */

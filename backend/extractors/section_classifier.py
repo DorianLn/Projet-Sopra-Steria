@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 import dateparser
 from rich.console import Console
 from rich.table import Table
-from backend.extractors.spacy_extractor import extraire_entites
+from .spacy_extractor import extraire_entites
 import json
 import os
 from datetime import datetime
@@ -249,7 +249,7 @@ def classifier_formations_experiences(texte: str, entites: dict, dates: List[str
 # ---------------------
 # 5️ Construction JSON + affichage rich
 # ---------------------
-def build_structured_json(emails, telephones, adresses, dates, texte_cv):
+def build_structured_json(emails, telephones, adresses, dates, texte_cv, verbose=True):
     entites = extraire_entites(texte_cv)
     entites["organisations"] = nettoyer_organisations(entites.get("organisations", []))
 
@@ -336,37 +336,38 @@ def build_structured_json(emails, telephones, adresses, dates, texte_cv):
         "dates": dates,
     }
 
-    # === Sauvegarde dans /data/output ===
-    def save_to_output_folder(json_data):
-        output_dir = "data/output"
-        os.makedirs(output_dir, exist_ok=True)
+    if verbose:
+        # === Sauvegarde dans /data/output ===
+        def save_to_output_folder(json_data):
+            output_dir = "data/output"
+            os.makedirs(output_dir, exist_ok=True)
 
-        filename = f"cv_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        path = os.path.join(output_dir, filename)
+            filename = f"cv_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            path = os.path.join(output_dir, filename)
 
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(json_data, f, indent=4, ensure_ascii=False)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(json_data, f, indent=4, ensure_ascii=False)
 
-        print(f"\n📁 Résultat JSON enregistré ici : {path}\n")
+            print(f"\n📁 Résultat JSON enregistré ici : {path}\n")
 
-    save_to_output_folder(json_final)
+        save_to_output_folder(json_final)
 
-    # === Affichage console ===
-    table = Table(title="Résultats d'analyse du CV", show_header=True, header_style="bold magenta")
-    table.add_column("Section", style="cyan", no_wrap=True)
-    table.add_column("Contenu principal", style="white")
-    table.add_row("👤 Nom", nom or "—")
-    table.add_row("📧 Email", contact["email"] or "—")
-    table.add_row("📞 Téléphone", contact["telephone"] or "—")
-    table.add_row("🏠 Adresse", contact["adresse"] or "—")
-    table.add_row("🎓 Formations", str([f"{f['etablissement']} ({f['dates']})" for f in formations]))
-    table.add_row("💼 Expériences", str([f"{e['entreprise']} - {e.get('poste', '—')} ({e['dates']})" for e in experiences]))
-    table.add_row("🧠 Compétences", ", ".join(competences[:10]))
-    table.add_row("🌐 Langues", ", ".join(langues))
-    table.add_row("🚀 Projets", ", ".join(projets) or "—")
-    table.add_row("🏅 Certifications", ", ".join(certifs) or "—")
-    table.add_row("🎯 Loisirs", ", ".join(loisirs) or "—")
-    table.add_row("📅 Disponibilité", dispo or "—")
-    console.print(table)
+        # === Affichage console ===
+        table = Table(title="Résultats d'analyse du CV", show_header=True, header_style="bold magenta")
+        table.add_column("Section", style="cyan", no_wrap=True)
+        table.add_column("Contenu principal", style="white")
+        table.add_row("👤 Nom", nom or "—")
+        table.add_row("📧 Email", contact["email"] or "—")
+        table.add_row("📞 Téléphone", contact["telephone"] or "—")
+        table.add_row("🏠 Adresse", contact["adresse"] or "—")
+        table.add_row("🎓 Formations", str([f"{f['etablissement']} ({f['dates']})" for f in formations]))
+        table.add_row("💼 Expériences", str([f"{e['entreprise']} - {e.get('poste', '—')} ({e['dates']})" for e in experiences]))
+        table.add_row("🧠 Compétences", ", ".join(competences[:10]))
+        table.add_row("🌐 Langues", ", ".join(langues))
+        table.add_row("🚀 Projets", ", ".join(projets) or "—")
+        table.add_row("🏅 Certifications", ", ".join(certifs) or "—")
+        table.add_row("🎯 Loisirs", ", ".join(loisirs) or "—")
+        table.add_row("📅 Disponibilité", dispo or "—")
+        console.print(table)
 
     return json_final

@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import List
 from extractors.pdf_to_docx import convert_pdf_to_docx
-from analyser_cv import lire_cv_docx, extraire_dates, extraire_email, extraire_telephone, extraire_adresse
+from analyser_cv import lire_cv_docx, extraire_dates, extraire_email, extraire_telephone, extraire_adresse, extraire_infos_cv
 import json
 from extractors.section_classifier import build_structured_json
 
@@ -64,52 +64,51 @@ def process_pdf_cv(pdf_path: str, output_json_path: str = None) -> bool:
             # Lit le contenu du CV
             texte_cv = lire_cv_docx(str(temp_docx))
 
-            print("===== DEBUG: extrait texte (début) =====")
-            print(texte_cv[:1000])   # affiche les 1000 premiers caractères
-            print("===== DEBUG: phrases =====")
-            import re
-            sentences = re.split(r'[.!\n]', texte_cv)
-            for i,s in enumerate(sentences[:30]):
-                print(f"[{i}] {s.strip()}")
-            print("=======================================")
-
-
-            from backend.extractors.spacy_extractor import extraire_entites
-            entites_debug = extraire_entites(texte_cv)
-            print("===== DEBUG entites spaCy =====")
-            print(entites_debug)
-            print("================================")
-
-
-            # Extraction regex
+            # --- 1. Ancienne méthode (spaCy) ---
+            print("\n--- Lancement de l'ancienne extraction (spaCy) ---")
+            # Extraction regex simple pour la structure de base
             emails = extraire_email(texte_cv)
             telephones = extraire_telephone(texte_cv)
             adresses = extraire_adresse(texte_cv)
             dates = extraire_dates(texte_cv)
-
-            # Structure les résultats
-            resultats = build_structured_json(
+            # Construction de la structure JSON avec spaCy et classifieurs
+            resultats_spacy = build_structured_json(
                 emails=emails,
                 telephones=telephones,
                 adresses=adresses,
                 dates=dates,
-                texte_cv=texte_cv
+                texte_cv=texte_cv,
+                verbose=False
             )
-            
-            # Sauvegarde les résultats
+            print("--- Fin de l'extraction spaCy ---")
+
+
+            # --- 2. Nouvelle méthode (Hugging Face) ---
+            print("\n--- Lancement de la nouvelle extraction (Hugging Face) ---")
+            resultats_hf = extraire_infos_cv(texte_cv)
+            print("--- Fin de l'extraction Hugging Face ---")
+
+
+            # --- 3. Combinaison et sauvegarde ---
+            resultats_complets = {
+                "resultats_spacy": resultats_spacy,
+                "resultats_huggingface": resultats_hf
+            }
+
+            # Sauvegarde des résultats complets
             with open(output_json_path, 'w', encoding='utf-8') as f:
-                json.dump(resultats, f, ensure_ascii=False, indent=2)
+                json.dump(resultats_complets, f, ensure_ascii=False, indent=2)
+
+            # Affiche un résumé comparatif
+            print("\n--- Résumé Comparatif ---")
+            print(f"Email (spaCy): {resultats_spacy.get('contact', {}).get('email', 'N/A')}")
+            print(f"Email (HF): {resultats_hf.get('emails', ['N/A'])[0]}")
+            print("-" * 20)
+            print("Compétences (spaCy):", resultats_spacy.get('competences', []))
+            print("Compétences (HF):", resultats_hf.get('ia_results', {}).get('SKILL', []))
+            print("------------------------")
             
             success = True
-            
-            # Affiche les résultats
-            print("\nRésultats trouvés :")
-            print("-" * 20)
-            print(f"Email : {resultats['contact']['email']}")
-            print(f"Téléphone : {resultats['contact']['telephone']}")
-            print(f"Adresse : {resultats['contact']['adresse']}")
-            print(f"Dates : {resultats['dates']}")
-
             
         except Exception as e:
             print(f"Erreur lors de l'extraction des données: {str(e)}")
@@ -164,5 +163,12 @@ def process_all_pdfs(input_dir: str = "data/input", output_dir: str = "data/outp
     print(f"- Échecs: {len(pdf_files) - successful}")
 
 if __name__ == "__main__":
+    # Obtenez le répertoire du script actuel
+    script_dir = Path(__file__).parent
+    
+    # Construisez les chemins absolus pour les répertoires d'entrée et de sortie
+    input_dir_path = script_dir / 'data' / 'input'
+    output_dir_path = script_dir / 'data' / 'output'
+    
     # Traitement de tous les PDF dans le dossier input
-    process_all_pdfs()
+    process_all_pdfs(str(input_dir_path), str(output_dir_path))

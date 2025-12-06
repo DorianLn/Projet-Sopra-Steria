@@ -20,3 +20,7 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Large ML models
+models/
+backend/models/

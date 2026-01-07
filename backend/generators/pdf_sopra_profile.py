@@ -10,23 +10,45 @@ GREY   = HexColor("#444444")
 
 
 def split_soft_vs_tech(comps):
-    """Sépare compétences fonctionnelles vs techniques (heuristique simple)."""
+    """Sépare compétences fonctionnelles vs techniques avec liste enrichie."""
     if not comps:
         return [], []
 
     soft_keywords = [
         "communication", "gestion", "leadership", "organisation",
-        "autonomie", "équipe", "equipe", "relation", "management"
+        "autonomie", "équipe", "equipe", "relation", "management",
+        "négociation", "collaboration", "travail", "team", "planning",
+        "résolution", "problèmes", "analyse", "client", "présentation"
     ]
+    
+    tech_keywords = [
+        "python", "java", "javascript", "typescript", "c++", "c#", "sql",
+        "docker", "kubernetes", "aws", "azure", "gcp", "git", "linux",
+        "react", "angular", "vue", "node", "django", "flask", "api",
+        "devops", "ci/cd", "cloud", "mongodb", "postgresql", "html", "css"
+    ]
+    
     fonctionnelles = []
     techniques = []
+    seen_fonct, seen_tech = set(), set()
 
     for c in comps:
-        low = c.lower()
+        if not c or not isinstance(c, str):
+            continue
+        low = c.lower().strip()
+        
         if any(k in low for k in soft_keywords):
-            fonctionnelles.append(c)
+            if low not in seen_fonct:
+                seen_fonct.add(low)
+                fonctionnelles.append(c)
+        elif any(k in low for k in tech_keywords):
+            if low not in seen_tech:
+                seen_tech.add(low)
+                techniques.append(c)
         else:
-            techniques.append(c)
+            if low not in seen_tech:
+                seen_tech.add(low)
+                techniques.append(c)
 
     return fonctionnelles, techniques
 
@@ -88,21 +110,38 @@ def draw_section_title(c, text, x, y):
     return y - 8
 
 
-def draw_bullets(c, lines, x, y, max_width=160*mm, line_height=11):
+def draw_bullets(c, lines, x, y, max_width=160*mm, line_height=11, fallback_text=None):
     """
     Affiche une liste à puces simple. Retourne la position Y finale.
+    Gère le texte long et fournit un fallback si la liste est vide.
     """
     c.setFont("Helvetica", 10)
     c.setFillColor(black)
+    
+    if not lines or not any(lines):
+        if fallback_text:
+            c.drawString(x + 8, y, fallback_text)
+            return y - line_height
+        return y
 
     for line in lines:
         if not line:
             continue
-        # bullet
+        
+        line_str = str(line).strip()
+        if not line_str:
+            continue
+        
+        if len(line_str) > 80:
+            line_str = line_str[:77] + "..."
+        
         c.circle(x, y + 3, 1.5, stroke=1, fill=1)
-        # texte
-        c.drawString(x + 8, y, line)
+        c.drawString(x + 8, y, line_str)
         y -= line_height
+        
+        if y < 30 * mm:
+            break
+            
     return y - 4
 
 
@@ -113,41 +152,34 @@ def draw_cv_page(cv_data, filename):
     content_width = w - left - right_margin
 
     c = canvas.Canvas(filename, pagesize=A4)
+    
+    # Récupération sécurisée des données
+    contact = cv_data.get("contact", {}) or {}
+    nom = contact.get("nom") or "Nom non renseigné"
+    titre_profil = cv_data.get("titre_profil") or "Profil Collaborateur"
 
     # -------- PAGE 1 --------
-    draw_header(
-        c,
-        title_text=cv_data.get("titre_profil", "Titre du Profil Collaborateur"),
-        name=cv_data.get("contact", {}).get("nom", "")
-    )
+    draw_header(c, title_text=titre_profil, name=nom)
 
-    y = h - 80 * mm  # point de départ contenu
+    y = h - 80 * mm
 
     # --- COMPETENCES FONCTIONNELLES / TECHNIQUES ---
     comps = cv_data.get("competences", []) or []
     comps_fonct, comps_tech = split_soft_vs_tech(comps)
 
-    # Compétences fonctionnelles
     y = draw_section_title(c, "Compétences fonctionnelles", left, y)
     y -= 6
-    if comps_fonct:
-        y = draw_bullets(c, comps_fonct, left + 4, y)
-    else:
-        y = draw_bullets(c, ["(non renseigné)"], left + 4, y)
+    y = draw_bullets(c, comps_fonct, left + 4, y, fallback_text="Non renseigné")
 
     y -= 10
 
-    # Compétences techniques
     y = draw_section_title(c, "Compétences techniques", left, y)
     y -= 6
-    if comps_tech:
-        y = draw_bullets(c, comps_tech, left + 4, y)
-    else:
-        y = draw_bullets(c, ["(non renseigné)"], left + 4, y)
+    y = draw_bullets(c, comps_tech, left + 4, y, fallback_text="Non renseigné")
 
     y -= 14
 
-    # --- EXPERIENCES (on en met 2-3 sur la page 1) ---
+    # --- EXPERIENCES ---
     experiences = cv_data.get("experiences", []) or []
 
     y = draw_section_title(c, "Expériences", left, y)
@@ -155,24 +187,37 @@ def draw_cv_page(cv_data, filename):
     c.setFont("Helvetica", 10)
     c.setFillColor(black)
 
-    for exp in experiences[:2]:
-        periode = exp.get("dates", "")
-        client = exp.get("entreprise", "")
-        fonction = exp.get("poste", "")
+    if experiences:
+        for exp in experiences[:3]:
+            if not isinstance(exp, dict):
+                continue
+            periode = exp.get("dates") or "Dates non précisées"
+            client = exp.get("entreprise") or "Entreprise non précisée"
+            fonction = exp.get("poste") or "Poste non précisé"
+            description = exp.get("description")
 
-        header = f"{periode} - {client} – {fonction}".strip(" -–")
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(left, y, header)
+            header = f"{periode} - {client}"
+            if fonction and fonction != "Poste non précisé":
+                header += f" – {fonction}"
+            
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(left, y, header[:80])
+            y -= 12
+
+            if description and description.strip():
+                c.setFont("Helvetica", 9)
+                desc_text = description.strip()[:100]
+                c.drawString(left + 10, y, f"• {desc_text}")
+                y -= 12
+
+            y -= 6
+            
+            if y < 60 * mm:
+                break
+    else:
+        c.setFont("Helvetica", 10)
+        c.drawString(left + 10, y, "Aucune expérience renseignée")
         y -= 12
-
-        # description / environnement = ici on met les projets liés
-        c.setFont("Helvetica-Oblique", 9)
-        env = cv_data.get("projets", [])
-        if env:
-            c.drawString(left + 10, y, "Environnement technique : " + ", ".join(env[:8]))
-            y -= 14
-
-        y -= 6
 
     # --- FORMATION / CERTIF ---
     y = draw_section_title(c, "Formation - Certification", left, y)
@@ -183,17 +228,19 @@ def draw_cv_page(cv_data, filename):
 
     lines_form = []
     for f in formations:
-        etab = f.get("etablissement", "")
-        d = f.get("dates", "")
-        if etab or d:
+        if not isinstance(f, dict):
+            continue
+        etab = f.get("etablissement") or ""
+        d = f.get("dates") or ""
+        diplome = f.get("diplome")
+        
+        if diplome:
+            lines_form.append(f"{diplome} – {etab} ({d})")
+        elif etab:
             lines_form.append(f"{etab} ({d})")
 
-    if not lines_form:
-        lines_form = ["(non renseigné)"]
+    y = draw_bullets(c, lines_form, left + 4, y, fallback_text="Non renseigné")
 
-    y = draw_bullets(c, lines_form, left + 4, y)
-
-    # certifications
     if certifs:
         c.setFont("Helvetica-Bold", 10)
         c.drawString(left + 4, y, "Certifications :")
@@ -206,62 +253,63 @@ def draw_cv_page(cv_data, filename):
     y = draw_section_title(c, "Langue(s)", left, y)
     y -= 6
     langues = cv_data.get("langues", []) or []
-    if langues:
-        y = draw_bullets(c, langues, left + 4, y)
-    else:
-        y = draw_bullets(c, ["(non renseigné)"], left + 4, y)
+    y = draw_bullets(c, langues, left + 4, y, fallback_text="Non renseigné")
 
     draw_footer(c, page_num=1)
     c.showPage()
 
-    # -------- PAGE 2 : on peut détailler contact / expériences / projets etc. --------
-    draw_header(
-        c,
-        title_text=cv_data.get("titre_profil", "Titre du Profil Collaborateur"),
-        name=cv_data.get("contact", {}).get("nom", "")
-    )
+    # -------- PAGE 2 : Contact / Expériences complémentaires / Projets --------
+    draw_header(c, title_text=titre_profil, name=nom)
 
     y = h - 80 * mm
 
-    # Section "Résumé & contact détaillé"
+    # Section "Profil & Contact"
     y = draw_section_title(c, "Profil & Contact", left, y)
     y -= 8
-    contact = cv_data.get("contact", {})
     c.setFont("Helvetica", 10)
     c.setFillColor(black)
-    lines_contact = [
-        f"Nom : {contact.get('nom', '')}",
-        f"Email : {contact.get('email', '')}",
-        f"Téléphone : {contact.get('telephone', '')}",
-        f"Adresse : {contact.get('adresse', '')}",
-    ]
+    
+    lines_contact = []
+    if contact.get('nom'):
+        lines_contact.append(f"Nom : {contact['nom']}")
+    if contact.get('email'):
+        lines_contact.append(f"Email : {contact['email']}")
+    if contact.get('telephone'):
+        lines_contact.append(f"Téléphone : {contact['telephone']}")
+    if contact.get('adresse'):
+        lines_contact.append(f"Adresse : {contact['adresse']}")
     if cv_data.get("disponibilite"):
         lines_contact.append(f"Disponibilité : {cv_data['disponibilite']}")
-    y = draw_bullets(c, lines_contact, left + 4, y)
+    
+    y = draw_bullets(c, lines_contact, left + 4, y, fallback_text="Contact non renseigné")
 
     y -= 8
 
-    # Expériences détaillées restantes
-    if len(experiences) > 2:
+    # Expériences complémentaires (si plus de 3)
+    if len(experiences) > 3:
         y = draw_section_title(c, "Expériences complémentaires", left, y)
         y -= 10
-        for exp in experiences[2:]:
-            periode = exp.get("dates", "")
-            client = exp.get("entreprise", "")
-            fonction = exp.get("poste", "")
-            header = f"{periode} - {client} – {fonction}".strip(" -–")
+        for exp in experiences[3:]:
+            if not isinstance(exp, dict):
+                continue
+            periode = exp.get("dates") or ""
+            client = exp.get("entreprise") or ""
+            fonction = exp.get("poste") or ""
+            
+            header = f"{periode} - {client}"
+            if fonction:
+                header += f" – {fonction}"
+            header = header.strip(" -–")[:80]
+            
             c.setFont("Helvetica-Bold", 10)
             c.drawString(left, y, header)
             y -= 12
             y -= 8
+            
             if y < 40*mm:
                 draw_footer(c, page_num=2)
                 c.showPage()
-                draw_header(
-                    c,
-                    title_text=cv_data.get("titre_profil", "Titre du Profil Collaborateur"),
-                    name=cv_data.get("contact", {}).get("nom", "")
-                )
+                draw_header(c, title_text=titre_profil, name=nom)
                 y = h - 80*mm
 
     # Projets / Loisirs

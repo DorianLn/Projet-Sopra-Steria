@@ -1,0 +1,15 @@
+{
+  "labels":[
+    "HEADER",
+    "PROFILE",
+    "EDUCATION",
+    "EXPERIENCE",
+    "SKILLS",
+    "LANGUAGES",
+    "PROJECTS",
+    "CERTIFICATIONS",
+    "INTERESTS",
+    "OTHER"
+  ],
+  "threshold":0.5
+}

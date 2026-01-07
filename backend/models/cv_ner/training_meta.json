@@ -1,0 +1,17 @@
+{
+  "base_model": "fr_core_news_md",
+  "trained_on": "2026-01-04T21:46:27.865073",
+  "iterations": 20,
+  "labels": [
+    "COMPANY",
+    "DATE_RANGE",
+    "DIPLOMA",
+    "JOB_TITLE",
+    "LANGUAGE",
+    "LOCATION",
+    "PERSON_NAME",
+    "SCHOOL",
+    "SKILL"
+  ],
+  "examples_count": 62
+}

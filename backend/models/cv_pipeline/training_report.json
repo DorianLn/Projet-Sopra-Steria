@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-01-04T23:07:59.755738",
+  "duration_seconds": 57.817122,
+  "base_model": "fr_core_news_md",
+  "ner": {
+    "iterations": 30,
+    "examples": 125,
+    "initial_loss": 445.5062255859375,
+    "final_loss": 56.79318618774414,
+    "labels": [
+      "COMPANY",
+      "DATE_RANGE",
+      "DIPLOMA",
+      "JOB_TITLE",
+      "LANGUAGE",
+      "LOCATION",
+      "PERSON_NAME",
+      "SCHOOL",
+      "SKILL"
+    ]
+  },
+  "textcat": {
+    "iterations": 20,
+    "examples": 42,
+    "initial_loss": 3.1641062200069427,
+    "final_loss": 0.02610853052465245,
+    "categories": [
+      "HEADER",
+      "PROFILE",
+      "EDUCATION",
+      "EXPERIENCE",
+      "SKILLS",
+      "LANGUAGES",
+      "PROJECTS",
+      "CERTIFICATIONS",
+      "INTERESTS",
+      "OTHER"
+    ]
+  }
+}

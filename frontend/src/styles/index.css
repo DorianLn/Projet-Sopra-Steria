@@ -1,0 +1,492 @@
+/* ============================================================
+   INDEX.CSS — GLOBAL STYLESHEET (CLEAN VERSION)
+   ============================================================ */
+
+   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+   @import "tailwindcss";
+   
+   * {
+     font-family: "Raleway", sans-serif;
+   }
+   
+    /* ===================== NAVBAR GLOBAL =======.dark button.text-xl:empty::before { content: "☀️"; font-size: 1.5rem; } 
+    /* ===================== MOBILE HAMBURGER BUTTON ===================== */
+    .navbar-toggle button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  
+    .navbar-toggle button:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+  
+    .dark .navbar-toggle button:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  
+    .navbar-toggle button svg {
+      width: 1.875rem;
+      height: 1.875rem;
+    }
+  
+    /* Classes pour les couleurs du hamburger */
+    .text-gray-700 {
+      color: #374151;
+    }
+  
+    .dark .text-gray-200 {
+      color: #e5e7eb;
+    }
+  
+    /* ===================== ADDITIONAL UTILITY CLASSES ===================== */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background-color: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+    }
+  
+    /* Si le navigateur supporte backdrop-filter, applique un blur et ajuste l'opacité */
+    @supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
+      .navbar {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        background-color: rgba(255, 255, 255, 0.6);
+      }
+    }
+  
+    /* Dark mode */
+    .dark .navbar {
+      background-color: rgba(15, 15, 15, 0.95);
+    }
+  
+    @supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
+      .dark .navbar {
+        background-color: rgba(15, 15, 15, 0.6);
+      }
+    }
+  
+    .navbar-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      height: 6rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+  
+    .navbar-logo img {
+      width: 12rem;
+    }
+  
+    .navbar-links {
+      display: none;
+    }
+  
+    @media (min-width: 768px) {
+      .navbar-links {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+    }
+  
+    .navbar-link {
+      font-weight: 700;
+      transition: transform 0.2s ease, color 0.2s ease;
+      border-bottom: 4px solid transparent;
+      text-decoration: none;
+      color: #000;
+    }
+  
+    .navbar-link:hover {
+      transform: scale(0.9);
+    }
+  
+    .navbar-link-active {
+      color: #FF5614 !important;
+      border-bottom: 2px solid #FF5614;
+    }
+  
+    .dark .navbar-link {
+      color: #eee;
+    }
+  
+    .navbar-btn {
+      display: none;
+    }
+  
+    .navbar-btn:hover {
+      transform: scale(0.9);
+    }
+  
+    @media (min-width: 768px) {
+      .navbar-btn {
+        display: flex;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 0.75rem;
+        background: linear-gradient(90deg, #880015, #FF5614);
+        color: white;
+        box-shadow: 0 8px 20px rgba(255, 86, 20, 0.3);
+        transition: all 0.3s ease;
+        text-decoration: none;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+  
+    .navbar-btn:hover {
+      opacity: 0.9;
+    }
+  
+    .navbar-mobile {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1rem 1.5rem;
+      background: linear-gradient(to bottom right, #ffffff, #fef5f1);
+    }
+  
+    .dark .navbar-mobile {
+      background: linear-gradient(to bottom right, #4d4c4c, #302e2e);
+    }
+  
+    .navbar-mobile .navbar-link {
+      display: block;
+      color: #111;
+    }
+  
+    .dark .navbar-mobile .navbar-link {
+      color: #eee;
+    }
+  
+    .navbar-mobile .navbar-btn {
+      text-align: center;
+      width: 100%;
+      color: white;
+      background: linear-gradient(90deg, #880015, #FF5614);
+    }
+  
+    .dark .navbar-mobile .navbar-btn {
+      color: white;
+      background: linear-gradient(90deg, #880015, #FF5614);
+    }
+  
+    /* ===================== NAVBAR DESKTOP ACTIONS ===================== */
+    /* Actions desktop (bouton dark mode + commencer) */
+    .navbar-actions {
+      display: none;
+      align-items: center;
+      gap: 1rem;
+    }
+  
+    @media (min-width: 768px) {
+      .navbar-actions {
+        display: flex;
+      }
+    }
+  
+    /* Toggle mobile hamburger */
+    .navbar-toggle {
+      display: block;
+    }
+  
+    @media (min-width: 768px) {
+      .navbar-toggle {
+        display: none;
+      }
+    }
+  
+    .text-xl {
+      font-size: 1.25rem;
+      line-height: 1.75rem;
+    }
+  
+    .focus\\:outline-none:focus {
+      outline: 2px solid transparent;
+      outline-offset: 2px;
+    }
+  
+    .text-white {
+      --tw-text-opacity: 1;
+      color: rgb(255 255 255 / var(--tw-text-opacity));
+    }
+  
+    .text-black {
+      --tw-text-opacity: 1;
+      color: rgb(0 0 0 / var(--tw-text-opacity));
+    }
+  
+    .text-gray-700 {
+      --tw-text-opacity: 1;
+      color: rgb(55 65 81 / var(--tw-text-opacity));
+    }
+  
+    .dark .text-gray-200 {
+      --tw-text-opacity: 1;
+      color: rgb(229 231 235 / var(--tw-text-opacity));
+    }
+  
+    /* ===================== DARK MODE TOGGLE BUTTON ===================== */
+    button.text-xl {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      line-height: 1;
+      min-width: 3rem;
+      min-height: 3rem;
+    }
+  
+    button.text-xl:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+      transform: scale(1.05);
+    }
+  
+    .dark button.text-xl:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  
+    /* Styles spécifiques pour les icônes */
+    button.text-xl svg {
+      display: block !important;
+      width: 1.75rem !important;
+      height: 1.75rem !important;
+      color: inherit !important;
+    }
+  
+    /* Classes de couleur pour le bouton */
+    .text-white {
+      color: #ffffff !important;
+    }
+  
+    .text-black {
+      color: #000000 !important;
+    }
+  
+    /* Focus pour accessibilité */
+    .focus\\:outline-none:focus {
+      outline: 2px solid #FF5614;
+      outline-offset: 2px;
+    }
+  
+    /* Styles propres pour le bouton dark mode */
+    /* Si les icônes ne se chargent pas, affiche du text de fallback */
+    button.text-xl:empty::before {
+      content: "🌙" !important;
+      font-size: 1.5rem;
+      display: block;
+    }
+  
+    .dark button.text-xl:empty::before {
+      content: "☀️" !important;
+      font-size: 1.5rem;
+      display: block;
+    }
+  
+    /* ===================== MOBILE HAMBURGER BUTTON ===================== */
+    .md\\:hidden button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+    }
+  
+    .md\\:hidden button:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+  
+    .dark .md\\:hidden button:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    /* ============================================================
+      🔘 GLOBAL BUTTONS
+      ============================================================ */
+   .btn-primary {
+     background: linear-gradient(90deg, #880015, #ff5614);
+     color: white;
+     padding: 0.75rem 1.5rem;
+     border-radius: 0.75rem;
+     font-weight: 600;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 0.5rem;
+     transition: all 0.3s ease;
+     box-shadow: 0 8px 20px rgba(255, 86, 20, 0.3);
+   }
+   
+   .btn-primary:hover {
+     opacity: 0.9;
+   }
+   
+   .btn-secondary {
+     border: 1px solid rgba(0, 0, 0, 0.3);
+     color: #000;
+     padding: 0.75rem 1.5rem;
+     border-radius: 0.75rem;
+     font-weight: 600;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 0.5rem;
+     transition: all 0.3s ease;
+     background-color: transparent;
+   }
+   
+   .dark .btn-secondary {
+     color: #fff;
+     border-color: rgba(255, 255, 255, 0.3);
+   }
+   
+   /* ============================================================
+      📝 TEXTES ET COULEURS
+      ============================================================ */
+   .gradient-text {
+     background: linear-gradient(to right, #880015, #ff5614);
+     -webkit-background-clip: text;
+     -webkit-text-fill-color: transparent;
+     color: transparent;
+   }
+   
+   .hero-title,
+   .section-title {
+     font-weight: 700;
+     text-align: center;
+     color: #111;
+   }
+   
+   .hero-title {
+     font-size: clamp(2rem, 5vw, 4rem);
+     margin-bottom: 1rem;
+   }
+   
+   .section-title {
+     font-size: clamp(1.875rem, 4vw, 2.5rem);
+     margin-bottom: 1rem;
+   }
+   
+   .dark .hero-title,
+   .dark .section-title {
+     color: #f9fafb;
+   }
+   
+   .hero-subtitle,
+   .section-subtitle {
+     font-size: clamp(1rem, 2.5vw, 1.25rem);
+     color: #555;
+     line-height: 1.6;
+     text-align: center;
+     margin: 0 auto 2rem;
+     max-width: 48rem;
+   }
+   
+   .dark .hero-subtitle,
+   .dark .section-subtitle {
+     color: #ccc;
+   }
+   
+   /* ============================================================
+      🔗 GLOBAL LINKS
+      ============================================================ */
+   a {
+     color: #ff5614;
+     font-weight: 600;
+     text-decoration: none;
+     transition: color 0.3s ease;
+   }
+   
+   a:hover {
+     color: #880015;
+   }
+   
+   /* Liens stylisés dans les paragraphes */
+   p a,
+   .section-subtitle a,
+   .hero-subtitle a {
+     background: linear-gradient(90deg, #880015, #ff5614);
+     -webkit-background-clip: text;
+     -webkit-text-fill-color: transparent;
+     font-weight: 700;
+   }
+   
+   p a:hover,
+   .section-subtitle a:hover,
+   .hero-subtitle a:hover {
+     opacity: 0.8;
+   }
+   
+   /* ============================================================
+      🧩 STRUCTURE & GRIDS
+      ============================================================ */
+   .root {
+     background: linear-gradient(to bottom right, #ffffff, #fef5f1);
+   }
+   
+   .responsive-grid-1 {
+     display: grid;
+     grid-template-columns: 1fr;
+     gap: 2rem;
+   }
+   
+   @media (min-width: 768px) {
+     .responsive-grid-2 {
+       grid-template-columns: repeat(2, 1fr);
+     }
+   
+     .responsive-grid-3 {
+       grid-template-columns: repeat(3, 1fr);
+     }
+   }
+   
+   @media (min-width: 1024px) {
+     .responsive-grid-4 {
+       grid-template-columns: repeat(4, 1fr);
+     }
+   }
+   
+   /* ============================================================
+      🟥 SOPRA LOGO
+      ============================================================ */
+   .sopra-logo,
+   .sopra-logo-top {
+     display: flex;
+     justify-content: center;
+     margin: 2rem auto;
+     padding: 1rem;
+   }
+   
+   .sopra-logo img,
+   .sopra-logo-top img {
+     height: 4rem;
+     width: auto;
+     max-width: 300px;
+   }
+   
+   @media (min-width: 768px) {
+     .sopra-logo img,
+     .sopra-logo-top img {
+       height: 5rem;
+       max-width: 400px;
+     }
+   }
+   

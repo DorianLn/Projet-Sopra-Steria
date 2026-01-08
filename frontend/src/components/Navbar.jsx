@@ -82,6 +82,15 @@ const Navbar = () => {
             Voir un exemple
           </NavLink>
           <NavLink
+            to="/normalize"
+            onClick={() => setIsOpen(false)}
+            className={({ isActive }) =>
+              isActive ? "navbar-link navbar-link-active" : "navbar-link"
+            }
+          >
+            Normaliser un CV
+          </NavLink>
+          <NavLink
             to="/howitworks"
             onClick={() => setIsOpen(false)}
             className={({ isActive }) =>

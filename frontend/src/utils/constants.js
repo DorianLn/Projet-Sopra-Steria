@@ -2,6 +2,7 @@
 export const ROUTES = {
   HOME: '/',
   START: '/start',
+  NORMALIZE: '/normalize',
   EXAMPLE: '/example',
   HOW_IT_WORKS: '/howitworks'
 }
@@ -9,6 +10,7 @@ export const ROUTES = {
 export const NAV_LINKS = [
   { path: ROUTES.HOME, label: 'Home' },
   { path: ROUTES.EXAMPLE, label: 'Voir un exemple' },
+  { path: ROUTES.NORMALIZE, label: 'Normaliser un CV' },
   { path: ROUTES.HOW_IT_WORKS, label: 'Comment ça marche' }
 ]
 

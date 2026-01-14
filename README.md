@@ -41,61 +41,31 @@ Projet-Sopra-Steria/
 
 ---
 
-## 🚀 Installation
+## 🚀 Lancement rapide
 
 ### Prérequis
 
-- **Python 3.11+**
-- **Node.js 18+** et npm
-- **Windows** (pour la conversion PDF via docx2pdf)
+- **Python 3.10+** → https://python.org
+- **Node.js 18+** → https://nodejs.org
 
-### Backend
-
-```bash
-cd backend
-
-# Créer l'environnement virtuel
-python -m venv venv
-
-# Activer l'environnement (Windows)
-venv\Scripts\activate
-
-# Installer les dépendances
-pip install -r requirements.txt
-
-# Installer le modèle spaCy français
-python -m spacy download fr_core_news_md
-```
-
-### Frontend
+### Démarrer l'application
 
 ```bash
-cd frontend
-
-# Installer les dépendances
-npm install
+python launcher.py
 ```
 
----
+Ou double-cliquez sur `start.bat`
 
-## ▶️ Lancement
+Le script installe automatiquement toutes les dépendances (venv Python, npm, modèle spaCy) lors du premier lancement.
 
-### Backend (Terminal 1)
+### Configurer le domaine personnalisé (optionnel)
 
-```bash
-cd backend
-venv\Scripts\activate
-python api.py
-```
-→ API disponible sur **http://localhost:5000**
+Pour accéder à l'application via `http://cv.soprasteria.com:5173` :
 
-### Frontend (Terminal 2)
+1. Clic droit sur `setup_domain.bat` → **Exécuter en tant qu'administrateur**
+2. Relancez `python launcher.py`
 
-```bash
-cd frontend
-npm run dev
-```
-→ Interface disponible sur **http://localhost:5173**
+Sans cette configuration, l'application reste accessible sur `http://localhost:5173`.
 
 ---
 

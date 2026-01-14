@@ -241,6 +241,7 @@ const Start = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [modifiedDocx, setModifiedDocx] = useState(null);
+  const [consentChecked, setConsentChecked] = useState(false);
 
 // --- Conversion DOCX modifié en PDF ---
   const convertDocxToPdf = async () => {
@@ -390,9 +391,25 @@ const Start = () => {
             {/* Bouton de traitement */}
             {selectedFile && (
               <div className="submit-section">
+                <div className="consent-container">
+                  <label className="consent-label">
+                    <input
+                      type="checkbox"
+                      checked={consentChecked}
+                      onChange={(e) => setConsentChecked(e.target.checked)}
+                      className="consent-checkbox"
+                    />
+                    <span className="consent-text">
+                      J'autorise le traitement de mon CV à des fins d'analyse et de génération de documents. 
+                      Je comprends que mes données personnelles seront traitées de manière confidentielle 
+                      et ne seront pas partagées avec des tiers. Ce traitement est effectué localement 
+                      et aucune donnée n'est transmise à des serveurs externes.
+                    </span>
+                  </label>
+                </div>
                 <button
                   onClick={handleSubmit}
-                  disabled={loading}
+                  disabled={loading || !consentChecked}
                   className="submit-button"
                 >
                   {loading ? 'Analyse en cours...' : 'Analyser le CV'}

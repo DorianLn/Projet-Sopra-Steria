@@ -19,6 +19,7 @@ const Normalize = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [metadata, setMetadata] = useState(null);
+  const [consentChecked, setConsentChecked] = useState(false);
 
   // --- Gestion du drag & drop ---
   const handleDrag = (e) => {
@@ -208,9 +209,25 @@ const Normalize = () => {
             {/* Bouton de traitement */}
             {selectedFile && (
               <div className="submit-section">
+                <div className="consent-container">
+                  <label className="consent-label">
+                    <input
+                      type="checkbox"
+                      checked={consentChecked}
+                      onChange={(e) => setConsentChecked(e.target.checked)}
+                      className="consent-checkbox"
+                    />
+                    <span className="consent-text">
+                      J'autorise le traitement de mon CV à des fins d'analyse et de génération de documents. 
+                      Je comprends que mes données personnelles seront traitées de manière confidentielle 
+                      et ne seront pas partagées avec des tiers. Ce traitement est effectué localement 
+                      et aucune donnée n'est transmise à des serveurs externes.
+                    </span>
+                  </label>
+                </div>
                 <button
                   onClick={handleSubmit}
-                  disabled={loading}
+                  disabled={loading || !consentChecked}
                   className="submit-button"
                 >
                   {loading ? 'Normalisation en cours...' : 'Normaliser le CV'}

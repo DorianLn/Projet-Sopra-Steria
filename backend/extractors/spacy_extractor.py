@@ -7,8 +7,11 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Chemin vers le modèle entraîné
-TRAINED_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_ner"
+# Chemin vers les modèles entraînés
+# NER model: contient les labels personnalisés (PERSON_NAME, COMPANY, SCHOOL, etc.)
+NER_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_pipeline" / "ner"
+# TextCat model: contient le classificateur de sections
+TEXTCAT_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_pipeline" / "textcat"
 BASE_MODEL = "fr_core_news_md"
 
 # Titres de sections courants à ignorer pour les noms
@@ -130,24 +133,71 @@ def clean_name(text: str) -> str:
 
 def load_spacy_model():
     """
-    Charge le modèle spaCy : utilise le modèle entraîné s'il existe,
-    sinon charge le modèle de base fr_core_news_md
+    Charge le modèle spaCy NER avec labels personnalisés.
+    
+    Le modèle NER (cv_pipeline/ner) contient les labels personnalisés:
+    - PERSON_NAME, COMPANY, SCHOOL, DIPLOMA, JOB_TITLE, SKILL, LANGUAGE, etc.
+    
+    Entraîné sur 125 exemples annotés avec 9 labels personnalisés.
     """
-    if TRAINED_MODEL_PATH.exists():
+    # Essayer de charger le modèle NER avec labels personnalisés
+    if NER_MODEL_PATH.exists():
         try:
-            logger.info(f"Chargement du modèle entraîné depuis: {TRAINED_MODEL_PATH}")
-            model = spacy.load(str(TRAINED_MODEL_PATH))
-            logger.info("✓ Modèle entraîné chargé avec succès")
+            logger.info(f"Chargement du modèle NER entraîné depuis: {NER_MODEL_PATH}")
+            model = spacy.load(str(NER_MODEL_PATH))
+            logger.info("✓ Modèle NER cv_pipeline chargé avec succès (labels personnalisés, 125 exemples)")
             return model, True
         except Exception as e:
-            logger.warning(f"Erreur lors du chargement du modèle entraîné: {e}")
-            logger.info(f"Fallback vers le modèle de base: {BASE_MODEL}")
+            logger.warning(f"Erreur lors du chargement du modèle NER cv_pipeline: {e}")
     
-    logger.info(f"Chargement du modèle de base: {BASE_MODEL}")
+    # Fallback vers cv_ner si existe
+    cv_ner_path = Path(__file__).parent.parent / "models" / "cv_ner"
+    if cv_ner_path.exists():
+        try:
+            logger.info(f"Tentative de chargement cv_ner depuis: {cv_ner_path}")
+            model = spacy.load(str(cv_ner_path))
+            logger.info("✓ Modèle cv_ner chargé (fallback)")
+            return model, True
+        except Exception as e:
+            logger.warning(f"Erreur lors du chargement du modèle cv_ner: {e}")
+    
+    logger.info(f"Fallback vers le modèle de base: {BASE_MODEL}")
     return spacy.load(BASE_MODEL), False
 
 # Charge le modèle de langue français (entraîné ou base)
 nlp, IS_TRAINED_MODEL = load_spacy_model()
+
+# Cache pour le modèle TextCat (chargé à la demande)
+_textcat_nlp = None
+
+def get_textcat_model():
+    """
+    Charge le modèle TextCat pour la classification de sections.
+    Le modèle est chargé une seule fois et mis en cache.
+    
+    Le modèle TextCat (cv_pipeline/textcat) permet de classifier automatiquement
+    les sections d'un CV en 10 catégories:
+    - HEADER, PROFILE, EDUCATION, EXPERIENCE, SKILLS, LANGUAGES, 
+      PROJECTS, CERTIFICATIONS, INTERESTS, OTHER
+    
+    Entraîné sur 42 exemples annotés avec 10 catégories de sections.
+    """
+    global _textcat_nlp
+    
+    if _textcat_nlp is not None:
+        return _textcat_nlp
+    
+    if TEXTCAT_MODEL_PATH.exists():
+        try:
+            logger.info(f"Chargement du modèle TextCat depuis: {TEXTCAT_MODEL_PATH}")
+            _textcat_nlp = spacy.load(str(TEXTCAT_MODEL_PATH))
+            logger.info("✓ Modèle TextCat chargé avec succès (42 exemples, 10 catégories)")
+            return _textcat_nlp
+        except Exception as e:
+            logger.warning(f"Erreur lors du chargement du modèle TextCat: {e}")
+    
+    logger.info("TextCat non disponible - utilisation des règles heuristiques")
+    return None
 
 def extraire_entites(texte):
     """
@@ -361,3 +411,40 @@ def extraire_entites(texte):
         entites[k] = unique
 
     return entites
+
+
+def classifier_section_texte(texte: str, seuil_confiance: float = 0.5) -> tuple:
+    """
+    Classifie une section de texte en utilisant le modèle TextCat entraîné.
+    
+    Args:
+        texte: Le texte de la section à classifier
+        seuil_confiance: Seuil minimal de confiance (0-1) pour accepter la prédiction
+    
+    Returns:
+        tuple: (catégorie, score) où catégorie est une des 10 catégories possibles:
+               HEADER, PROFILE, EDUCATION, EXPERIENCE, SKILLS, LANGUAGES,
+               PROJECTS, CERTIFICATIONS, INTERESTS, OTHER
+    
+    Si le modèle TextCat n'est pas disponible ou si le score est trop faible,
+    retourne ("OTHER", 0.0)
+    """
+    textcat_nlp = get_textcat_model()
+    
+    if textcat_nlp is None:
+        return ("OTHER", 0.0)
+    
+    doc = textcat_nlp(texte[:1000])  # Limiter à 1000 caractères pour performance
+    
+    if not doc.cats:
+        return ("OTHER", 0.0)
+    
+    # Trouver la catégorie avec le score le plus élevé
+    sorted_cats = sorted(doc.cats.items(), key=lambda x: x[1], reverse=True)
+    best_category, best_score = sorted_cats[0]
+    
+    # Retourner seulement si le score dépasse le seuil
+    if best_score >= seuil_confiance:
+        return (best_category, best_score)
+    
+    return ("OTHER", best_score)

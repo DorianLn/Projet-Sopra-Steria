@@ -10,12 +10,12 @@ from datetime import datetime
 
 # Import adaptatif pour spacy_extractor
 try:
-    from extractors.spacy_extractor import extraire_entites
+    from extractors.spacy_extractor import extraire_entites, classifier_section_texte
 except ImportError:
     try:
-        from .spacy_extractor import extraire_entites
+        from .spacy_extractor import extraire_entites, classifier_section_texte
     except ImportError:
-        from spacy_extractor import extraire_entites
+        from spacy_extractor import extraire_entites, classifier_section_texte
 
 console = Console()
 
@@ -79,6 +79,15 @@ DATE_REGEXES = [
     r'\b(?:Janvier|Février|Fevrier|Mars|Avril|Mai|Juin|Juillet|Août|Aout|Septembre|Octobre|Novembre|Décembre)\s+\d{4}\b',
     r'\b(?:\d{4})\s*[-–—]\s*(?:\d{4}|[Pp]résent|[Aa]ctuel(?:lement)?|[Aa]ujourd\'?hui)\b'
 ]
+
+# ---------------------
+# Configuration constants
+# ---------------------
+# Nombre minimal de lignes pour qu'une section soit valide
+MIN_SECTION_LINES = 2
+
+# Distance maximale en caractères pour associer une entité (école/entreprise) à une autre (diplôme/poste)
+PROXIMITY_THRESHOLD = 200
 
 # ---------------------
 # 1️ Extraction de base
@@ -557,6 +566,70 @@ def is_valid_company(name: str) -> bool:
     return True
 
 
+def detecter_sections_avec_textcat(texte: str) -> dict:
+    """
+    Utilise le modèle TextCat entraîné pour détecter automatiquement les sections d'un CV.
+    
+    PRIORITÉ: Cette fonction utilise le modèle ML entraîné au lieu de chercher 
+    des mots-clés avec des regex.
+    
+    Args:
+        texte: Le texte complet du CV
+    
+    Returns:
+        dict: {categorie: texte_section} pour chaque section détectée
+              Catégories possibles: EDUCATION, EXPERIENCE, SKILLS, LANGUAGES, etc.
+    """
+    sections = {}
+    
+    # Diviser le texte en lignes
+    lignes = texte.split('\n')
+    titres_potentiels = []
+    
+    # Détecter les titres: lignes courtes (<50 chars), majoritairement en majuscules
+    for i, ligne in enumerate(lignes):
+        ligne_stripped = ligne.strip()
+        if not ligne_stripped:
+            continue
+        
+        # Un titre de section est généralement:
+        # - Court (< 50 caractères)
+        # - En majuscules ou commence par une majuscule
+        # - Pas de ponctuation complexe
+        is_short = len(ligne_stripped) < 50
+        is_uppercase = sum(1 for c in ligne_stripped if c.isupper()) / max(len(ligne_stripped), 1) > 0.4
+        
+        if is_short and is_uppercase:
+            titres_potentiels.append((i, ligne_stripped))
+    
+    # Pour chaque titre potentiel, extraire la section jusqu'au prochain titre
+    for idx, (line_num, titre) in enumerate(titres_potentiels):
+        # Trouver le prochain titre
+        next_line_num = titres_potentiels[idx + 1][0] if idx + 1 < len(titres_potentiels) else len(lignes)
+        
+        # Extraire le texte de la section (au moins MIN_SECTION_LINES lignes pour avoir du contexte)
+        if next_line_num - line_num < MIN_SECTION_LINES:
+            continue
+        
+        section_lines = lignes[line_num:next_line_num]
+        section_text = '\n'.join(section_lines)
+        
+        # Classifier cette section avec TextCat
+        categorie, score = classifier_section_texte(section_text, seuil_confiance=0.5)
+        
+        # Si la section est déjà présente, garder celle avec le meilleur score
+        if categorie != "OTHER":
+            if categorie not in sections or score > sections[categorie].get('score', 0):
+                sections[categorie] = {
+                    'texte': section_text,
+                    'score': score,
+                    'titre': titre
+                }
+    
+    # Retourner seulement les textes des sections
+    return {cat: info['texte'] for cat, info in sections.items()}
+
+
 def extract_section_text(texte: str, section_names: List[str]) -> Optional[str]:
     """Extrait le texte d'une section spécifique du CV."""
     pattern = r'(?:' + '|'.join(section_names) + r')\s*[:\-\n]+(.+?)(?=\n\s*(?:Formations?|Expériences?|Compétences?|Langues?|Projets?|Certifications?|Loisirs?|Centres?\s+d\'intérêt)\s*[:\-\n]|$)'
@@ -567,13 +640,22 @@ def extract_section_text(texte: str, section_names: List[str]) -> Optional[str]:
 def parse_formation_section(texte: str) -> List[dict]:
     """
     Parse la section Formations du CV de manière structurée.
-    Cherche les patterns: Date - École - Diplôme ou École - Diplôme (Date)
+    
+    PRIORITÉ: Utilise d'abord le modèle TextCat pour détecter la section EDUCATION,
+    puis applique les patterns de parsing structurés.
+    
+    Fallback: Si TextCat ne trouve rien, utilise la recherche par mots-clés.
     """
     formations = []
     
-    # Chercher la section Formations
-    formation_keywords = ["FORMATION", "FORMATIONS", "ÉTUDES", "ETUDES", "ÉDUCATION", "EDUCATION", "CURSUS", "PARCOURS ACADÉMIQUE", "PARCOURS SCOLAIRE"]
-    section_text = extract_section_text(texte, formation_keywords)
+    # === PRIORITÉ 1: Utiliser TextCat pour détecter la section EDUCATION ===
+    sections_ml = detecter_sections_avec_textcat(texte)
+    section_text = sections_ml.get("EDUCATION")
+    
+    # === FALLBACK: Recherche par mots-clés si TextCat n'a rien trouvé ===
+    if not section_text:
+        formation_keywords = ["FORMATION", "FORMATIONS", "ÉTUDES", "ETUDES", "ÉDUCATION", "EDUCATION", "CURSUS", "PARCOURS ACADÉMIQUE", "PARCOURS SCOLAIRE"]
+        section_text = extract_section_text(texte, formation_keywords)
     
     if not section_text:
         return formations
@@ -754,14 +836,24 @@ def extract_diploma_school(text: str) -> Tuple[Optional[str], Optional[str]]:
 def parse_experience_section_v2(texte: str) -> List[dict]:
     """
     Parse la section Expériences du CV de manière structurée (version améliorée).
+    
+    PRIORITÉ: Utilise d'abord le modèle TextCat pour détecter la section EXPERIENCE,
+    puis applique les patterns de parsing structurés.
+    
+    Fallback: Si TextCat ne trouve rien, utilise la recherche par mots-clés.
     """
     experiences = []
     
-    # Chercher la section Expériences
-    exp_keywords = ["EXPÉRIENCE", "EXPERIENCE", "EXPÉRIENCES", "EXPERIENCES", 
-                    "EXPÉRIENCE PROFESSIONNELLE", "EXPÉRIENCES PROFESSIONNELLES",
-                    "PARCOURS PROFESSIONNEL", "PROFESSIONAL EXPERIENCE"]
-    section_text = extract_section_text(texte, exp_keywords)
+    # === PRIORITÉ 1: Utiliser TextCat pour détecter la section EXPERIENCE ===
+    sections_ml = detecter_sections_avec_textcat(texte)
+    section_text = sections_ml.get("EXPERIENCE")
+    
+    # === FALLBACK: Recherche par mots-clés si TextCat n'a rien trouvé ===
+    if not section_text:
+        exp_keywords = ["EXPÉRIENCE", "EXPERIENCE", "EXPÉRIENCES", "EXPERIENCES", 
+                        "EXPÉRIENCE PROFESSIONNELLE", "EXPÉRIENCES PROFESSIONNELLES",
+                        "PARCOURS PROFESSIONNEL", "PROFESSIONAL EXPERIENCE"]
+        section_text = extract_section_text(texte, exp_keywords)
     
     if not section_text:
         return experiences
@@ -1113,105 +1205,104 @@ def classifier_formations_experiences(texte: str, entites: dict, dates: List[str
     formations, experiences = [], []
     date_spans = extract_date_spans(texte)
 
-    # === PRIORITÉ 1: Parser les sections directement ===
-    # Cela donne de meilleurs résultats que l'extraction par entités NER
+    # === PRIORITÉ 1: Utiliser les entités du modèle NER entraîné ===
+    # Le modèle a été entraîné sur 322 exemples, il faut lui faire confiance !
     
-    parsed_formations = parse_formation_section(texte)
-    if parsed_formations:
-        for f in parsed_formations:
-            if f.get("etablissement") or f.get("diplome"):
-                # Valider l'établissement si présent
-                if f.get("etablissement") and not is_valid_school(f["etablissement"]):
-                    continue
-                formations.append({
-                    "etablissement": f.get("etablissement"),
-                    "dates": f.get("dates"),
-                    "diplome": f.get("diplome")
-                })
-    
-    parsed_experiences = parse_experience_section_v2(texte)
-    if parsed_experiences:
-        for e in parsed_experiences:
-            if e.get("entreprise") and is_valid_company(e["entreprise"]):
-                experiences.append(e)
-    
-    # Si les parsers de section n'ont rien trouvé, utiliser les entités NER
-    if not formations and not experiences:
-        # === FALLBACK: Utiliser les entités spécifiques du modèle entraîné ===
+    # 1. Formations depuis les écoles détectées par le modèle entraîné
+    for ecole in entites.get("ecoles", []):
+        ecole_clean = nettoyer_nom_organisation(ecole)
+        if not ecole_clean or ecole_clean.lower() in STOP_ORG:
+            continue
+        # Valider que c'est un vrai établissement
+        if not is_valid_school(ecole_clean):
+            continue
         
-        # 1. Formations depuis les écoles détectées par le modèle entraîné
-        for ecole in entites.get("ecoles", []):
-            ecole_clean = nettoyer_nom_organisation(ecole)
-            if not ecole_clean or ecole_clean.lower() in STOP_ORG:
-                continue
-            # Valider que c'est un vrai établissement
-            if not is_valid_school(ecole_clean):
-                continue
-            
-            date_assoc = find_closest_date_by_char(ecole_clean, texte, date_spans)
-            
-            # Chercher le diplôme associé
-            diplome = None
-            for dip in entites.get("diplomes", []):
-                # Vérifier si le diplôme est proche de l'école dans le texte
-                idx_ecole = texte.lower().find(ecole_clean.lower())
-                idx_dip = texte.lower().find(dip.lower())
-                if idx_ecole != -1 and idx_dip != -1:
-                    if abs(idx_ecole - idx_dip) < 200:  # Proximité de 200 caractères
-                        diplome = dip
-                        break
-            
-            formations.append({
-                "etablissement": ecole_clean,
-                "dates": date_assoc,
-                "diplome": diplome
-            })
+        date_assoc = find_closest_date_by_char(ecole_clean, texte, date_spans)
         
-        # 2. Expériences depuis les entreprises détectées par le modèle entraîné
-        ecoles_lower = {e.lower() for e in entites.get("ecoles", [])}
-        for entreprise in entites.get("organisations", []):
-            entreprise_clean = nettoyer_nom_organisation(entreprise)
-            if not entreprise_clean or entreprise_clean.lower() in STOP_ORG:
-                continue
-            # Éviter les doublons avec les écoles
-            if entreprise_clean.lower() in ecoles_lower:
-                continue
-            if not is_valid_company(entreprise_clean):
-                continue
-            
-            date_assoc = find_closest_date_by_char(entreprise_clean, texte, date_spans)
-            
-            # Chercher le poste associé
-            poste = None
-            for p in entites.get("postes", []):
-                idx_ent = texte.lower().find(entreprise_clean.lower())
-                idx_poste = texte.lower().find(p.lower())
-                if idx_ent != -1 and idx_poste != -1:
-                    if abs(idx_ent - idx_poste) < 200:
-                        poste = p.title()
-                        break
-            
-            if not poste:
-                sentences = re.split(r'[.!\n]', texte)
-                for s in sentences:
-                    if entreprise_clean.lower() in s.lower():
-                        poste = extract_poste_from_context(s)
-                        break
-            
-            if not poste:
-                idx = texte.lower().find(entreprise_clean.lower())
-                if idx != -1:
-                    window = texte[max(0, idx-100):min(len(texte), idx+150)]
-                    poste = extract_poste_from_context(window)
-            
-            experiences.append({
-                "entreprise": entreprise_clean,
-                "poste": poste,
-                "dates": date_assoc,
-                "description": None
-            })
+        # Chercher le diplôme associé
+        diplome = None
+        for dip in entites.get("diplomes", []):
+            # Vérifier si le diplôme est proche de l'école dans le texte
+            idx_ecole = texte.lower().find(ecole_clean.lower())
+            idx_dip = texte.lower().find(dip.lower())
+            if idx_ecole != -1 and idx_dip != -1:
+                if abs(idx_ecole - idx_dip) < PROXIMITY_THRESHOLD:
+                    diplome = dip
+                    break
+        
+        formations.append({
+            "etablissement": ecole_clean,
+            "dates": date_assoc,
+            "diplome": diplome
+        })
+    
+    # 2. Expériences depuis les entreprises détectées par le modèle entraîné
+    ecoles_lower = {e.lower() for e in entites.get("ecoles", [])}
+    for entreprise in entites.get("organisations", []):
+        entreprise_clean = nettoyer_nom_organisation(entreprise)
+        if not entreprise_clean or entreprise_clean.lower() in STOP_ORG:
+            continue
+        # Éviter les doublons avec les écoles
+        if entreprise_clean.lower() in ecoles_lower:
+            continue
+        if not is_valid_company(entreprise_clean):
+            continue
+        
+        date_assoc = find_closest_date_by_char(entreprise_clean, texte, date_spans)
+        
+        # Chercher le poste associé
+        poste = None
+        for p in entites.get("postes", []):
+            idx_ent = texte.lower().find(entreprise_clean.lower())
+            idx_poste = texte.lower().find(p.lower())
+            if idx_ent != -1 and idx_poste != -1:
+                if abs(idx_ent - idx_poste) < PROXIMITY_THRESHOLD:
+                    poste = p.title()
+                    break
+        
+        if not poste:
+            sentences = re.split(r'[.!\n]', texte)
+            for s in sentences:
+                if entreprise_clean.lower() in s.lower():
+                    poste = extract_poste_from_context(s)
+                    break
+        
+        if not poste:
+            idx = texte.lower().find(entreprise_clean.lower())
+            if idx != -1:
+                window = texte[max(0, idx-100):min(len(texte), idx+150)]
+                poste = extract_poste_from_context(window)
+        
+        experiences.append({
+            "entreprise": entreprise_clean,
+            "poste": poste,
+            "dates": date_assoc,
+            "description": None
+        })
+    
+    # === FALLBACK: Si NER n'a rien trouvé, utiliser les parsers heuristiques ===
+    if not formations:
+        parsed_formations = parse_formation_section(texte)
+        if parsed_formations:
+            for f in parsed_formations:
+                if f.get("etablissement") or f.get("diplome"):
+                    # Valider l'établissement si présent
+                    if f.get("etablissement") and not is_valid_school(f["etablissement"]):
+                        continue
+                    formations.append({
+                        "etablissement": f.get("etablissement"),
+                        "dates": f.get("dates"),
+                        "diplome": f.get("diplome")
+                    })
+    
+    if not experiences:
+        parsed_experiences = parse_experience_section_v2(texte)
+        if parsed_experiences:
+            for e in parsed_experiences:
+                if e.get("entreprise") and is_valid_company(e["entreprise"]):
+                    experiences.append(e)
 
-    # === FALLBACK: Logique originale pour les organisations non classifiées ===
+    # === ENRICHISSEMENT: Ajouter les organisations non classifiées par le NER ===
     formations_lower = {f["etablissement"].lower() for f in formations if f.get("etablissement")}
     experiences_lower = {e["entreprise"].lower() for e in experiences if e.get("entreprise")}
     

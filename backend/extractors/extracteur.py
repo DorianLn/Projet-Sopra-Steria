@@ -1,3 +1,4 @@
+# backend/extractors/extracteur.py
 import re
 
 def dedupliquer(liste):
@@ -161,6 +162,7 @@ def extraire_experiences(texte):
                     experiences.append(experience)
     
     return dedupliquer(experiences)
+
 
 def extraire_loisirs(texte):
     """Extrait les loisirs et centres d'intérêt"""

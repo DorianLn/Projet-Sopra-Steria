@@ -671,7 +671,8 @@ TEXTCAT_TRAINING_DATA = [
     ("Intérêts: Hackathons, Meetups tech, Podcasts IA, Veille technologique",
      {"cats": {"HEADER": 0.0, "PROFILE": 0.0, "EDUCATION": 0.0, "EXPERIENCE": 0.0, "SKILLS": 0.0, "LANGUAGES": 0.0, "PROJECTS": 0.0, "CERTIFICATIONS": 0.0, "INTERESTS": 1.0, "OTHER": 0.0}}),
 ]
-
+from training.generated_data import GENERATED_NER_DATA
+NER_FULL_DATA = NER_TRAINING_DATA + GENERATED_NER_DATA
 # =============================================================================
 # FONCTIONS UTILITAIRES
 # =============================================================================

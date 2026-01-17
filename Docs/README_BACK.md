@@ -90,8 +90,18 @@ L’application analyse un CV grâce à un pipeline avancé mêlant expressions 
   │   ├── generate_sopra_docx.py   # Génération du DOCX structuré
   │   ├── pdf_sopra_profile.py     # Génération du PDF Sopra Steria
   │   └── docx_to_pdf.py           # Conversion DOCX → PDF
-  │
-  └── analyser_cv.py               # Script offline pour tests locaux
+  │  
+  │  
+  │── training/
+  │   ├── generate_training_data.py  # génère GENERATED_NER_DATA
+  │   ├──training_data.py            # définit NER_TRAINING_DATA + TEXTCAT_TRAINING_DATA
+  │   ├──train_ner.py                # entraîne uniquement le NER
+  │   ├──train_textcat.py            # entraîne uniquement le TextCat
+  │   └──train_pipeline.py           # entraîne NER + TextCat ensemble
+  │  
+  │  
+  └── analyser_cv.py  etc             # Script offline pour tests locaux
+
 
 ##  Installation
 
@@ -113,6 +123,7 @@ venv\Scripts\activate      # Windows
 
 ```bash
 pip install -r requirements.txt
+pip install spacy pymupdf python-docx
 ```
 
 ### 4. Installer spaCy + modèle français

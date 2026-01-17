@@ -16,8 +16,7 @@ logging.basicConfig(level=logging.DEBUG)
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from extractors.pdf_to_docx import convert_pdf_to_docx
-from analyser_cv import lire_cv_docx, extraire_infos_cv
-from extractors.section_classifier import build_structured_json
+from analyser_cv import lire_cv_docx, extraire_cv_pipeline
 from extractors.version_mapper import normalize_old_cv_to_new, convert_v2_to_old_format
 
 app = Flask(__name__)
@@ -44,17 +43,8 @@ def process_cv(file_path):
         # Lecture du DOCX
         texte_cv = lire_cv_docx(str(file_path))
 
-        # Appel de la même fonction que le script CLI
-        infos_brutes = extraire_infos_cv(texte_cv)
-
-        # Build complet + classification + SpaCy
-        resultats = build_structured_json(
-            emails=infos_brutes["emails"],
-            telephones=infos_brutes["telephones"],
-            adresses=infos_brutes["adresses"],
-            dates=infos_brutes["dates"],
-            texte_cv=texte_cv
-        )
+        # Extraction via pipeline
+        resultats = extraire_cv_pipeline(texte_cv)
 
         # Sauvegarde JSON propre
         nom_candidat = (resultats.get("contact", {}).get("nom") or "Inconnu").replace(" ", "_")
@@ -134,6 +124,25 @@ def analyze_cv():
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# ------------------------------------------------- 
+#           ROUTE DOWNLOAD JSON       
+# -------------------------------------------------
+
+@app.route('/api/cv/json/<filename>', methods=['GET'])
+def download_json(filename):
+    base = Path("data/output")
+    json_path = base / f"{filename}.json"
+
+    if not json_path.exists():
+        return jsonify({"error": "JSON introuvable"}), 404
+
+    return send_file(
+        str(json_path),
+        mimetype="application/json",
+        as_attachment=True,
+        download_name=f"{filename}.json"
+    )
 
 # -------------------------------------------------
 #           ROUTE DOWNLOAD DOCX       

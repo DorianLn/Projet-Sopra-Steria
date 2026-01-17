@@ -1,3 +1,4 @@
+# backend/extractors/version_mapper.py
 """
 Module de normalisation CV : conversion ancien format → format TEMPLATE Sopra Steria
 
@@ -17,74 +18,75 @@ from docx import Document
 
 
 def extract_from_docx(docx_path: str) -> Dict[str, Any]:
-    """
-    Extrait directement du DOCX en cherchant les 5 titres de sections.
-    
-    Retourne un Dict avec resultats_spacy pour compatibilité avec normalize_old_cv_to_new.
-    
-    Cette approche fonctionne mieux pour les anciens formats de CV que le pipeline classique.
-    """
-    
     try:
         doc = Document(docx_path)
     except Exception:
         return {}
-    
-    # Lire tous les paragraphes
+
     paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-    
-    # Titres des 5 sections à chercher (case-insensitive)
+
     section_titles = {
         "competences_fonctionnelles": ["Compétences fonctionnelles", "competences fonctionnelles"],
         "competences_techniques": ["Compétences techniques", "competences techniques"],
-        "experiences": ["Expériences", "Experience", "Experiences"],
-        "formations": ["Formation", "Formations", "Diplômes"],
+        "experiences": ["Expériences", "Experience", "Experiences","Expériences Professionnelles", "Experience Professionnelle", "Experiences Professionnelles","EXPERIENCES PROFESSIONNELLES"],
+        "formations": [
+            "Formation",
+            "Formations",
+            "Diplômes",
+            "Formation - Certification",
+            "Formations - Certifications"
+        ],
         "langues": ["Langue", "Langues", "Langue(s)"]
     }
-    
-    # Trouver les positions des titres
-    section_positions = {}
+
+    detected_sections = []
+
     for i, para in enumerate(paragraphs):
         para_lower = para.lower()
+
         for section, titles in section_titles.items():
             for title in titles:
-                if title.lower() == para_lower:
-                    section_positions[section] = i
+                if title.lower() in para_lower:
+                    detected_sections.append((section, i))
                     break
-    
-    # Si on n'a trouvé aucune section, retourner vide
-    if not section_positions:
+
+    if not detected_sections:
         return {}
-    
-    # Extraire le contenu entre les titres
-    sections_content = {}
-    for section, start_idx in section_positions.items():
-        # Trouver le prochain titre
-        next_idx = len(paragraphs)
-        for other_section, other_idx in section_positions.items():
-            if other_idx > start_idx:
-                next_idx = min(next_idx, other_idx)
-        
-        # Extraire les lignes entre ce titre et le suivant
-        content = paragraphs[start_idx + 1:next_idx]
-        # Filtrer les lignes vides
-        content = [line for line in content if line]
-        sections_content[section] = content
-    
-    # Extraire le nom du premier paragraphe (titre du CV)
-    nom = paragraphs[0] if paragraphs else ""
-    
-    # Retourner au format attendu par normalize_old_cv_to_new
+
+    detected_sections = sorted(detected_sections, key=lambda x: x[1])
+
+    sections_content = {
+        "competences_fonctionnelles": [],
+        "competences_techniques": [],
+        "experiences": [],
+        "formations": [],
+        "langues": []
+    }
+
+    for idx, (section, start) in enumerate(detected_sections):
+        end = detected_sections[idx + 1][1] if idx + 1 < len(detected_sections) else len(paragraphs)
+
+        content = paragraphs[start + 1:end]
+
+        sections_content[section].extend(content)
+
+    nom = ""
+    for p in paragraphs[:6]:
+        if any(c.isalpha() for c in p) and len(p.split()) <= 4:
+            nom = p
+            break
+
     return {
         "resultats_spacy": {
             "contact": {"nom": nom},
-            "competences_fonctionnelles": sections_content.get("competences_fonctionnelles", []),
-            "competences_techniques": sections_content.get("competences_techniques", []),
-            "experiences": sections_content.get("experiences", []),
-            "formations": sections_content.get("formations", []),
-            "langues": sections_content.get("langues", [])
+            "competences_fonctionnelles": sections_content["competences_fonctionnelles"],
+            "competences_techniques": sections_content["competences_techniques"],
+            "experiences": sections_content["experiences"],
+            "formations": sections_content["formations"],
+            "langues": sections_content["langues"]
         }
     }
+
 
 
 def extract_initiales(nom: str) -> str:

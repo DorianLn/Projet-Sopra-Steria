@@ -91,6 +91,7 @@ def bullets(lst, fallback="Non renseigné"):
     return "\n".join(f"• {v}" for v in clean_items)
 
 
+
 def format_experiences(exps: List[Dict], style: str = "professional") -> str:
     """
     Formate les expériences avec les données réelles extraites.
@@ -197,6 +198,43 @@ def format_formations(forms: List[Dict], style: str = "professional") -> str:
     return "\n".join(lines) if lines else "• Aucune formation renseignée"
 
 
+def build_experience_slots(experiences: List[Dict], max_slots: int = 3) -> Dict[str, str]:
+    slots = {}
+    exps_sorted = sort_experiences_by_date(experiences)[:max_slots]
+
+    for i in range(1, max_slots + 1):
+        if i <= len(exps_sorted):
+            e = exps_sorted[i - 1]
+            slots[f"{{{{PERIODE_{i}}}}}"] = normalize_date_display(e.get("dates"))
+            slots[f"{{{{CLIENT_{i}}}}}"] = (e.get("entreprise") or "").strip()
+            slots[f"{{{{INTITULE_MISSION_{i}}}}}"] = (e.get("mission") or e.get("intitule") or "").strip()
+            slots[f"{{{{FONCTION_{i}}}}}"] = (e.get("poste") or "").strip()
+            slots[f"{{{{DESCRIPTION_MISSION_{i}}}}}"] = (e.get("description") or "").strip()
+            slots[f"{{{{ENV_TECH_{i}}}}}"] = (e.get("environnement_technique") or "").strip()
+        else:
+            for k in ["PERIODE", "CLIENT", "INTITULE_MISSION", "FONCTION", "DESCRIPTION_MISSION", "ENV_TECH"]:
+                slots[f"{{{{{k}_{i}}}}}"] = ""
+
+    return slots
+
+def cleanup_empty_experience_blocks(doc):
+    to_delete = []
+
+    for p in doc.paragraphs:
+        text = p.text.strip()
+
+        # Ligne d'expérience vide : " -  -  - " ou variations
+        if re.fullmatch(r'[-\s–—]*', text):
+            to_delete.append(p)
+
+        # Environnement technique vide
+        if text.lower().startswith("environnement technique") and ":" in text and len(text.split(":")[-1].strip()) == 0:
+            to_delete.append(p)
+
+    for p in to_delete:
+        p._element.getparent().remove(p._element)
+
+
 def sort_experiences_by_date(exps: List[Dict]) -> List[Dict]:
     """Trie les expériences par date (anti-chronologique)."""
     def extract_year(exp):
@@ -248,6 +286,28 @@ def format_contact(contact):
     
     return "\n".join(lines) if lines else "Contact non renseigné"
 
+def replace_variables_in_docx(doc, mapping: Dict[str, str]):
+    def replace_in_paragraph(paragraph):
+        for run in paragraph.runs:
+            for key, val in mapping.items():
+                if key in run.text:
+                    run.text = run.text.replace(key, val or "")
+
+    for p in doc.paragraphs:
+        replace_in_paragraph(p)
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    replace_in_paragraph(p)
+
+    for section in doc.sections:
+        for p in section.header.paragraphs:
+            replace_in_paragraph(p)
+        for p in section.footer.paragraphs:
+            replace_in_paragraph(p)
+
 
 # ---------------------------
 #   GENERATE DOCX FINAL
@@ -262,86 +322,95 @@ def generate_sopra_docx(cv_data, output_path):
 
     contact = cv_data.get("contact", {}) or {}
     titre_profil = cv_data.get("titre_profil") or "Profil Collaborateur"
-
-    # -------------------------
-    #  1) GRAND TITRE (Nom + Titre Profil)
-    # -------------------------
     nom = contact.get("nom") or "Nom Prénom"
-    
-    if doc.paragraphs:
-        title_paragraph = doc.paragraphs[0]
-        title_paragraph.text = nom
-        
-        if title_paragraph.runs:
-            title_paragraph.runs[0].bold = True
-            try:
-                title_paragraph.runs[0].font.size = doc.styles['Heading 1'].font.size
-            except:
-                title_paragraph.runs[0].font.size = Pt(24)
 
-    # Ajouter le titre du profil
-    profil_para = doc.add_paragraph()
-    profil_run = profil_para.add_run(titre_profil)
-    profil_run.bold = True
-    profil_run.font.size = Pt(14)
-    
-    # Ajouter la ligne horizontale style Sopra
-    line = doc.add_paragraph()
-    add_horizontal_line(line)
+    competences = cv_data.get("competences", {})
 
-    # -------------------------
-    # 2) EXTRACTION DES BLOCS COMPLETS
-    # -------------------------
-    comp_fonct, comp_tech = classify_competences(cv_data.get("competences", []))
-    
-    projets = cv_data.get("projets", [])
-    projets_str = bullets(projets, "Aucun projet renseigné") if projets else ""
-    
-    disponibilite = cv_data.get("disponibilite")
-    dispo_str = disponibilite if disponibilite else "Non précisée"
+    comp_tech_text = format_competences_techniques(
+        competences.get("techniques", {})
+    )
+
+    comp_fonct_text = format_competences_fonctionnelles(
+        competences.get("fonctionnelles", [])
+    )
+    experience_slots = build_experience_slots(cv_data.get("experiences", []))
+
+    # Préparer formations + certifications
+    certifs = bullets(cv_data.get("certifications", []), "").strip()
+    form_cert = format_formations(cv_data.get("formations"))
+    if certifs:
+        form_cert += "\n" + certifs
 
     mapping = {
-        "{{NOM}}": nom,
         "{{TITRE_PROFIL}}": titre_profil,
-        "{{CONTACT}}": format_contact(contact),
-        "{{EMAIL}}": contact.get("email") or "Non renseigné",
-        "{{TELEPHONE}}": contact.get("telephone") or "Non renseigné",
-        "{{ADRESSE}}": contact.get("adresse") or "Non renseignée",
-        "{{COMP_FONCT}}": bullets(comp_fonct, "Aucune compétence fonctionnelle"),
-        "{{COMP_TECH}}": bullets(comp_tech, "Aucune compétence technique"),
-        "{{COMPETENCES}}": bullets(cv_data.get("competences", []), "Aucune compétence"),
-        "{{EXPERIENCES}}": format_experiences(cv_data.get("experiences")),
-        "{{FORMATIONS}}": format_formations(cv_data.get("formations")),
-        "{{LANGUES}}": bullets(cv_data.get("langues", []), "Non renseigné"),
-        "{{CERTIFICATIONS}}": bullets(cv_data.get("certifications", []), "Aucune certification"),
-        "{{LOISIRS}}": bullets(cv_data.get("loisirs", []), "Non renseigné"),
-        "{{PROJETS}}": projets_str,
-        "{{DISPONIBILITE}}": dispo_str,
+        "{{NOM_PRENOM}}": nom,
+        "{{COMP_FONCT}}": comp_fonct_text,
+        "{{COMP_TECH}}": comp_tech_text,
+        "{{FORMATIONS_CERTIFICATIONS}}": form_cert,
+        "{{LANGUES}}": bullets(cv_data.get("langues", [])),
     }
 
-    # -------------------------
-    # 3) REMPLACEMENT TEMPLATE COMPLET
-    # -------------------------
-    for p in doc.paragraphs:
-        original_text = p.text
-        for key, val in mapping.items():
-            if key in p.text:
-                p.text = p.text.replace(key, val if val else "Non renseigné")
-                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    
-    # Parcourir aussi les tableaux si présents
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for p in cell.paragraphs:
-                    for key, val in mapping.items():
-                        if key in p.text:
-                            p.text = p.text.replace(key, val if val else "Non renseigné")
+    mapping.update(experience_slots)
 
+    replace_variables_in_docx(doc, mapping)
+    cleanup_empty_experience_blocks(doc)
 
     doc.save(output_path)
     return output_path
 
+def format_competences_techniques(tech_dict):
+    """
+    Transforme la structure :
+    {
+      "programmation": [...],
+      "frameworks": [...],
+      "bases_de_donnees": [...],
+      "outils": [...]
+    }
+    en texte structuré pour DOCX
+    """
+
+    if not isinstance(tech_dict, dict):
+        return "• Aucune compétence technique"
+
+    result = []
+
+    mapping_titres = {
+        "programmation": "Programmation",
+        "frameworks": "Frameworks",
+        "bases_de_donnees": "Bases de données",
+        "devops_cloud": "DevOps & Cloud",
+        "outils": "Outils",
+        "autres": "Autres compétences"
+    }
+
+    for key, values in tech_dict.items():
+        if not values:
+            continue
+
+        titre = mapping_titres.get(key, key.capitalize())
+
+        result.append(f"{titre} :")
+
+        clean_values = [str(v).strip() for v in values if v and str(v).strip()]
+
+        for v in clean_values:
+            result.append(f"• {v}")
+
+        result.append("")  # ligne vide entre catégories
+
+    return "\n".join(result) if result else "• Aucune compétence technique"
+
+def format_competences_fonctionnelles(lst):
+    if not isinstance(lst, list) or not lst:
+        return "• Aucune compétence fonctionnelle"
+
+    clean = [str(v).strip() for v in lst if v and str(v).strip()]
+
+    if not clean:
+        return "• Aucune compétence fonctionnelle"
+
+    return "\n".join(f"• {v}" for v in clean)
 
 def generate_cv_documents(cv_data: Dict, output_dir: str, filename: str = None) -> Dict[str, str]:
     """

@@ -24,13 +24,46 @@ from spacy.util import minibatch, compounding
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from training.training_data import (
-    NER_TRAINING_DATA, 
+    NER_FULL_DATA,
     TEXTCAT_TRAINING_DATA,
     SECTION_CATEGORIES,
     get_ner_labels,
     validate_training_data
 )
 
+def validate_textcat_data(data):
+    errors = []
+    for i, (text, ann) in enumerate(data):
+        cats = ann.get("cats")
+        if not cats:
+            errors.append(f"Exemple {i}: pas de 'cats'")
+        elif not any(v == 1.0 for v in cats.values()):
+            errors.append(f"Exemple {i}: aucune catégorie à 1.0")
+    return errors
+
+def remove_overlapping_entities(examples):
+    cleaned = []
+
+    for text, ann in examples:
+        ents = ann.get("entities", [])
+
+        # Trier par longueur décroissante
+        ents = sorted(ents, key=lambda x: (x[1] - x[0]), reverse=True)
+
+        kept = []
+        occupied = set()
+
+        for start, end, label in ents:
+            if any(i in occupied for i in range(start, end)):
+                continue
+            kept.append((start, end, label))
+            for i in range(start, end):
+                occupied.add(i)
+
+        if kept:
+            cleaned.append((text, {"entities": kept}))
+
+    return cleaned
 
 def train_full_pipeline(
     base_model: str = "fr_core_news_md",
@@ -48,10 +81,11 @@ def train_full_pipeline(
     
     # Validation
     print("\n🔍 Validation des données...")
-    errors = validate_training_data(NER_TRAINING_DATA)
+    errors = validate_training_data(NER_FULL_DATA)
+    
     if errors:
         raise ValueError(f"Erreurs dans les données NER: {errors[:3]}")
-    print(f"   ✓ {len(NER_TRAINING_DATA)} exemples NER valides")
+    print(f"   ✓ {len(NER_FULL_DATA)} exemples NER valides")
     print(f"   ✓ {len(TEXTCAT_TRAINING_DATA)} exemples TextCat valides")
     
     # Charger le modèle de base
@@ -83,11 +117,16 @@ def train_full_pipeline(
         print(f"   + {label}")
     
     # Préparer les exemples NER
+    print("\n🧹 Nettoyage des overlaps NER...")
+    cleaned_ner_data = remove_overlapping_entities(NER_FULL_DATA)
+    print(f"   {len(NER_FULL_DATA)} → {len(cleaned_ner_data)} après nettoyage")
+
     ner_examples = []
-    for text, annotations in NER_TRAINING_DATA:
+    for text, annotations in cleaned_ner_data:
         doc = nlp.make_doc(text)
         example = Example.from_dict(doc, annotations)
         ner_examples.append(example)
+
     
     # Entraîner NER
     other_pipes = [p for p in nlp.pipe_names if p != "ner"]
@@ -170,7 +209,7 @@ def train_full_pipeline(
             "textcat_iterations": textcat_iterations,
             "ner_labels": ner_labels,
             "textcat_labels": SECTION_CATEGORIES,
-            "ner_examples": len(NER_TRAINING_DATA),
+            "ner_examples": len(NER_FULL_DATA),
             "textcat_examples": len(TEXTCAT_TRAINING_DATA),
             "pipeline": nlp.pipe_names
         }

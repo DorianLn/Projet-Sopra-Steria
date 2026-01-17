@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-01-04T23:07:59.755738",
-  "duration_seconds": 57.817122,
+  "timestamp": "2026-01-17T00:39:28.337850",
+  "duration_seconds": 68.18319,
   "base_model": "fr_core_news_md",
   "ner": {
     "iterations": 30,
     "examples": 125,
-    "initial_loss": 445.5062255859375,
-    "final_loss": 56.79318618774414,
+    "initial_loss": 442.1478271484375,
+    "final_loss": 76.9316635131836,
     "labels": [
       "COMPANY",
       "DATE_RANGE",
@@ -22,8 +22,8 @@
   "textcat": {
     "iterations": 20,
     "examples": 42,
-    "initial_loss": 3.1641062200069427,
-    "final_loss": 0.02610853052465245,
+    "initial_loss": 2.4059491753578186,
+    "final_loss": 0.020365129224956036,
     "categories": [
       "HEADER",
       "PROFILE",

@@ -43,7 +43,13 @@ const computeExtractionScore = (result) => {
   if (result.contact?.nom && result.contact?.email) score += weights.contact;
   if (result.formations?.length) score += weights.formations;
   if (result.experiences?.length) score += weights.experiences;
-  if (result.competences?.length) score += weights.competences;
+  if (
+    result.competences &&
+    (result.competences.techniques ||
+      result.competences.fonctionnelles)
+  ) {
+    score += weights.competences;
+  }
   if (result.langues?.length) score += weights.langues;
   if (result.projets?.length) score += weights.projets;
   if (result.certifications?.length) score += weights.certifications;
@@ -86,7 +92,18 @@ const computeProfessionalCvScore = (result) => {
   let score = 0;
 
   // 1) Richesse compétences
-  const comp = result.competences || [];
+  let comp = [];
+
+  if (result.competences) {
+    if (result.competences.techniques) {
+      comp = Object.values(result.competences.techniques).flat();
+    }
+  
+    if (result.competences.fonctionnelles) {
+      comp = comp.concat(result.competences.fonctionnelles);
+    }
+  }
+  
   const hasBackend = comp.some(c => /python|java|spring|node|django|c\+\+/i.test(c));
   const hasFrontend = comp.some(c => /react|angular|vue|html|css|javascript/i.test(c));
   const hasCloud = comp.some(c => /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd/i.test(c));
@@ -134,8 +151,9 @@ const computeProfessionalCvScore = (result) => {
     (result.contact ? 1 : 0) +
     (result.formations?.length ? 1 : 0) +
     (result.experiences?.length ? 1 : 0) +
-    (result.competences?.length ? 1 : 0);
-
+    (result.competences &&
+      (result.competences.techniques ||
+       result.competences.fonctionnelles) ? 1 : 0);
   score += structureSections * 3; // max 12
 
   return Math.min(100, score);
@@ -184,7 +202,26 @@ const estimateExperienceLevel = (result) => {
 };
 
 const buildRadarData = (result) => {
-  const competences = (result?.competences || []).slice(0, 7); // max 7 axes
+  if (!result || !result.competences) {
+    return {
+      labels: ['Compétences'],
+      datasets: [
+        {
+          label: 'Compétences',
+          data: [1]
+        }
+      ]
+    };
+  }
+
+  let competences = [];
+
+  if (result.competences.techniques) {
+    competences = Object.values(result.competences.techniques).flat();
+  }
+
+  competences = competences.slice(0, 7);
+
   if (!competences.length) {
     return {
       labels: ['Compétences'],
@@ -197,7 +234,6 @@ const buildRadarData = (result) => {
     };
   }
 
-  // on met toutes les valeurs à 3 pour un rendu équilibré
   const values = competences.map(() => 3);
 
   return {
@@ -214,6 +250,7 @@ const buildRadarData = (result) => {
     ]
   };
 };
+
 
 const downloadJson = (result) => {
   const blob = new Blob([JSON.stringify(result, null, 2)], {
@@ -349,13 +386,14 @@ const Start = () => {
             Analysez votre <span className="gradient-text">CV</span>
           </h1>
           <p className="hero-subtitle">
-            Téléversez votre CV (.docx ou .pdf) pour une extraction automatique des informations clés.
+            Téléversez votre CV (.docx ou .pdf) pour une extraction automatique
+            des informations clés.
           </p>
 
           {/* Zone de téléchargement */}
           <div className="mt-10 relative">
             <div
-              className={`upload-zone ${dragActive ? 'drag-active' : ''}`}
+              className={`upload-zone ${dragActive ? "drag-active" : ""}`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
@@ -373,15 +411,23 @@ const Start = () => {
                   <div className="space-y-2">
                     <div className="file-selected">
                       <FileText className="file-selected-icon" />
-                      <span className="file-selected-name">{selectedFile.name}</span>
+                      <span className="file-selected-name">
+                        {selectedFile.name}
+                      </span>
                     </div>
                     <p className="file-ready">Fichier prêt à être analysé</p>
                   </div>
                 ) : (
                   <>
-                    <h3 className="upload-title">Glissez-déposez votre CV ici</h3>
-                    <p className="upload-description">ou cliquez pour sélectionner un fichier</p>
-                    <p className="upload-format">Formats acceptés : .docx, .pdf</p>
+                    <h3 className="upload-title">
+                      Glissez-déposez votre CV ici
+                    </h3>
+                    <p className="upload-description">
+                      ou cliquez pour sélectionner un fichier
+                    </p>
+                    <p className="upload-format">
+                      Formats acceptés : .docx, .pdf
+                    </p>
                   </>
                 )}
               </div>
@@ -395,7 +441,7 @@ const Start = () => {
                   disabled={loading}
                   className="submit-button"
                 >
-                  {loading ? 'Analyse en cours...' : 'Analyser le CV'}
+                  {loading ? "Analyse en cours..." : "Analyser le CV"}
                   <ArrowRight />
                 </button>
               </div>
@@ -412,53 +458,63 @@ const Start = () => {
           {/* Résultat affiché */}
           {result && (
             <div className="result-section text-left mt-10">
-
               {/* Barre d’outils / résumé */}
               <div className="result-toolbar">
-
                 {/* Score extraction */}
                 <div className="score-block">
                   <span className="score-label">Fiabilité extraction</span>
                   <div className="score-value">
                     <BarChart3 size={18} />
                     <span>{extractionScore}%</span>
-                    </div>
+                  </div>
                   <div className="score-bar">
                     <div
                       className="score-bar-fill"
                       style={{ width: `${extractionScore}%` }}
-                      />
-                  </div>
-                  
-                  {/* Score Pro */}
-                  <div className="score-block">
-                  <span className="score-label">Score CV Pro</span>
-                  <div className="score-value">
-                    <BarChart3 size={18} />
-                    <span>{professionalScore}%</span>
-                  </div>
-                  <div className="score-bar">
-                    <div
-                      className="score-bar-fill"
-                      style={{ width: `${professionalScore}%` }}
                     />
                   </div>
-                </div>
+
+                  {/* Score Pro */}
+                  <div className="score-block">
+                    <span className="score-label">Score CV Pro</span>
+                    <div className="score-value">
+                      <BarChart3 size={18} />
+                      <span>{professionalScore}%</span>
+                    </div>
+                    <div className="score-bar">
+                      <div
+                        className="score-bar-fill"
+                        style={{ width: `${professionalScore}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* XP */}
                 <div className="xp-block">
                   <span className="xp-label">Niveau d’expérience</span>
                   <span className="xp-pill">
-                    {xpInfo.label} {xpInfo.years > 0 && `(${xpInfo.years} ans estimés)`}
+                    {xpInfo.label}{" "}
+                    {xpInfo.years > 0 && `(${xpInfo.years} ans estimés)`}
                   </span>
                 </div>
 
                 <div className="export-buttons">
                   <button
                     className="export-btn"
-                    onClick={() => downloadJson(result)}
-                    >
+                    onClick={() => {
+                      const baseName = result.json_filename.replace(
+                        ".json",
+                        ""
+                      );
+                      window.open(
+                        `http://localhost:5000/api/cv/json/${encodeURIComponent(
+                          baseName
+                        )}`,
+                        "_blank"
+                      );
+                    }}
+                  >
                     <Download size={16} />
                     JSON
                   </button>
@@ -469,7 +525,10 @@ const Start = () => {
                         alert("Aucun PDF généré par le backend.");
                         return;
                       }
-                      window.open(`http://localhost:5000/api/cv/pdf/${result.pdf_filename}`, "_blank");
+                      window.open(
+                        `http://localhost:5000/api/cv/pdf/${result.pdf_filename}`,
+                        "_blank"
+                      );
                     }}
                   >
                     <FileDown size={16} />
@@ -484,7 +543,10 @@ const Start = () => {
                         return;
                       }
 
-                      const baseName = result.json_filename.replace(".json", "");
+                      const baseName = result.json_filename.replace(
+                        ".json",
+                        ""
+                      );
 
                       window.open(
                         `http://localhost:5000/api/cv/docx/${baseName}`,
@@ -518,21 +580,35 @@ const Start = () => {
                     <FileDown size={16} />
                     Convertir en PDF
                   </button>
-
-                                  </div>
+                </div>
               </div>
 
               {/* Grille principale */}
               <div className="result-wrapper">
-
                 {/* CONTACT */}
                 <div className="result-card">
                   <h3 className="result-title">📞 Contact</h3>
                   <ul className="result-list text-gray-700">
-                    {result.contact.nom && <li><strong>Nom :</strong> {result.contact.nom}</li>}
-                    {result.contact.email && <li><strong>Email :</strong> {result.contact.email}</li>}
-                    {result.contact.telephone && <li><strong>Téléphone :</strong> {result.contact.telephone}</li>}
-                    {result.contact.adresse && <li><strong>Adresse :</strong> {result.contact.adresse}</li>}
+                    {result.contact.nom && (
+                      <li>
+                        <strong>Nom :</strong> {result.contact.nom}
+                      </li>
+                    )}
+                    {result.contact.email && (
+                      <li>
+                        <strong>Email :</strong> {result.contact.email}
+                      </li>
+                    )}
+                    {result.contact.telephone && (
+                      <li>
+                        <strong>Téléphone :</strong> {result.contact.telephone}
+                      </li>
+                    )}
+                    {result.contact.adresse && (
+                      <li>
+                        <strong>Adresse :</strong> {result.contact.adresse}
+                      </li>
+                    )}
                   </ul>
                 </div>
 
@@ -542,7 +618,9 @@ const Start = () => {
                     <h3 className="result-title">🎓 Formations</h3>
                     <ul className="result-list text-gray-700">
                       {result.formations.map((f, i) => (
-                        <li key={i}><strong>{f.etablissement}</strong> — {f.dates}</li>
+                        <li key={i}>
+                          <strong>{f.etablissement}</strong> — {f.dates}
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -555,7 +633,8 @@ const Start = () => {
                     <ul className="result-list text-gray-700">
                       {result.experiences.map((e, i) => (
                         <li key={i}>
-                          <strong>{e.entreprise}</strong> — {e.poste || '—'} ({e.dates})
+                          <strong>{e.entreprise}</strong> — {e.poste || "—"} (
+                          {e.dates})
                         </li>
                       ))}
                     </ul>
@@ -567,25 +646,70 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">🚀 Projets</h3>
                     <ul className="result-list text-gray-700">
-                      {result.projets.map((p, i) => <li key={i}>{p}</li>)}
+                      {result.projets.map((p, i) => (
+                        <li key={i}>{p}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
-                
+
                 {/* COMPETENCES (tags + radar) */}
-                {result.competences?.length > 0 && (
+                {result.competences && (
                   <div className="result-card">
                     <h3 className="result-title">🧠 Compétences</h3>
-                    <div className="skills-tags">
-                      {result.competences.map((c, i) => (
-                        <span key={i} className="skill-tag">{c}</span>
-                      ))}
-                    </div>
+
+                    {/* COMPÉTENCES TECHNIQUES */}
+                    {result.competences.techniques && (
+                      <div className="skills-section">
+                        <h4 className="skills-section-title">
+                          Compétences Techniques
+                        </h4>
+
+                        {Object.entries(result.competences.techniques).map(
+                          ([categorie, liste]) => (
+                            <div key={categorie} className="skills-category">
+                              <h5 className="skills-category-title">
+                                {categorie}
+                              </h5>
+
+                              <div className="skills-tags">
+                                {liste.map((c, i) => (
+                                  <span key={i} className="skill-tag">
+                                    {c}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    {/* COMPÉTENCES FONCTIONNELLES */}
+                    {result.competences.fonctionnelles &&
+                      result.competences.fonctionnelles.length > 0 && (
+                        <div className="skills-section">
+                          <h4 className="skills-section-title">
+                            Compétences Fonctionnelles
+                          </h4>
+
+                          <div className="skills-tags">
+                            {result.competences.fonctionnelles.map((c, i) => (
+                              <span
+                                key={i}
+                                className="skill-tag skill-functional"
+                              >
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                   </div>
                 )}
 
                 {/* RADAR COMPETENCES */}
-                {result.competences?.length > 0 && (
+                {result.competences?.techniques && Object.values(result.competences.techniques).flat().length > 0 && (
                   <div className="result-card radar-card">
                     <h3 className="result-title">
                       <BarChart3 size={18} /> Radar des compétences
@@ -598,12 +722,12 @@ const Start = () => {
                           r: {
                             suggestedMin: 0,
                             suggestedMax: 5,
-                            ticks: { stepSize: 1 }
-                          }
+                            ticks: { stepSize: 1 },
+                          },
                         },
                         plugins: {
-                          legend: { display: false }
-                        }
+                          legend: { display: false },
+                        },
                       }}
                     />
                   </div>
@@ -614,7 +738,9 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">🌍 Langues</h3>
                     <ul className="result-list text-gray-700">
-                      {result.langues.map((l, i) => <li key={i}>{l}</li>)}
+                      {result.langues.map((l, i) => (
+                        <li key={i}>{l}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -624,7 +750,9 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">🏅 Certifications</h3>
                     <ul className="result-list text-gray-700">
-                      {result.certifications.map((c, i) => <li key={i}>{c}</li>)}
+                      {result.certifications.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -634,7 +762,9 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">🎯 Loisirs</h3>
                     <ul className="result-list text-gray-700">
-                      {result.loisirs.map((l, i) => <li key={i}>{l}</li>)}
+                      {result.loisirs.map((l, i) => (
+                        <li key={i}>{l}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -652,7 +782,9 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">🗂 Dates détectées</h3>
                     <ul className="result-list text-gray-700">
-                      {result.dates.map((d, i) => <li key={i}>{d}</li>)}
+                      {result.dates.map((d, i) => (
+                        <li key={i}>{d}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -665,7 +797,8 @@ const Start = () => {
                   <div className="cv-preview-body">
                     <h4>{result.contact.nom}</h4>
                     <p className="cv-preview-contact">
-                      {result.contact.email} ··· {result.contact.telephone} ··· {result.contact.adresse}
+                      {result.contact.email} ··· {result.contact.telephone} ···{" "}
+                      {result.contact.adresse}
                     </p>
 
                     {result.formations?.length > 0 && (
@@ -687,7 +820,8 @@ const Start = () => {
                         <ul>
                           {result.experiences.map((e, i) => (
                             <li key={i}>
-                              <strong>{e.entreprise}</strong> — {e.poste || '—'} ({e.dates})
+                              <strong>{e.entreprise}</strong> — {e.poste || "—"}{" "}
+                              ({e.dates})
                             </li>
                           ))}
                         </ul>
@@ -698,22 +832,35 @@ const Start = () => {
                       <>
                         <h5>Projets</h5>
                         <ul>
-                          {result.projets.map((p, i) => <li key={i}>{p}</li>)}
+                          {result.projets.map((p, i) => (
+                            <li key={i}>{p}</li>
+                          ))}
                         </ul>
                       </>
                     )}
 
-                    {result.competences?.length > 0 && (
+                    {result.competences && (
                       <>
                         <h5>Compétences clés</h5>
-                        <p>{result.competences.join(' · ')}</p>
+
+                        {result.competences.techniques && (
+                          <p>
+                            {Object.values(result.competences.techniques)
+                              .flat()
+                              .join(" · ")}
+                          </p>
+                        )}
+
+                        {result.competences.fonctionnelles?.length > 0 && (
+                          <p>{result.competences.fonctionnelles.join(" · ")}</p>
+                        )}
                       </>
                     )}
 
                     {result.langues?.length > 0 && (
                       <>
                         <h5>Langues</h5>
-                        <p>{result.langues.join(' · ')}</p>
+                        <p>{result.langues.join(" · ")}</p>
                       </>
                     )}
 
@@ -732,19 +879,29 @@ const Start = () => {
           {/* Étapes visuelles */}
           <div className="process-steps mt-16">
             <div className="process-step">
-              <div className="step-icon"><Upload /></div>
+              <div className="step-icon">
+                <Upload />
+              </div>
               <h3 className="step-title">1. Téléversez</h3>
-              <p className="step-description">Choisissez votre CV .docx ou .pdf</p>
+              <p className="step-description">
+                Choisissez votre CV .docx ou .pdf
+              </p>
             </div>
 
             <div className="process-step">
-              <div className="step-icon"><FileText /></div>
+              <div className="step-icon">
+                <FileText />
+              </div>
               <h3 className="step-title">2. Analyse</h3>
-              <p className="step-description">Extraction automatique des données</p>
+              <p className="step-description">
+                Extraction automatique des données
+              </p>
             </div>
 
             <div className="process-step">
-              <div className="step-icon"><ArrowRight /></div>
+              <div className="step-icon">
+                <ArrowRight />
+              </div>
               <h3 className="step-title">3. Résultat</h3>
               <p className="step-description">Dashboard d’analyse structuré</p>
             </div>

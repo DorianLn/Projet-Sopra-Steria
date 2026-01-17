@@ -26,7 +26,9 @@ from spacy.util import minibatch, compounding
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from training.training_data import TEXTCAT_TRAINING_DATA, SECTION_CATEGORIES
+from training.generated_data import GENERATED_NER_DATA
 
+TRAIN_DATA = NER_TRAINING_DATA + GENERATED_NER_DATA
 
 def create_textcat_examples(nlp, training_data):
     """Convertit les données d'entraînement en objets Example spaCy."""

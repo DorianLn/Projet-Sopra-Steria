@@ -1,3 +1,4 @@
+# backend/extractors/heuristic_rules.py
 """
 Règles heuristiques renforcées pour l'extraction structurée de CV.
 

@@ -1,3 +1,4 @@
+# backend/extractors/enhanced_extractor.py
 """
 Extracteur spaCy amélioré utilisant les modèles entraînés.
 
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Chemin vers le modèle entraîné (relatif au dossier backend)
-TRAINED_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_pipeline"
+TRAINED_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_ner"
 BASE_MODEL = "fr_core_news_md"
 
 # Labels NER personnalisés
@@ -573,7 +574,24 @@ def extraire_entites(texte: str) -> Dict[str, List[str]]:
         "competences": result.get("competences", []),
         "langues": result.get("langues", [])
     }
+# =============================================================================
+# FONCTION DE COMPLÉTION DES DONNÉES MANQUANTES
+# =============================================================================
+def completer_donnees_manquantes(data: dict, texte: str) -> dict:
+    """
+    Utilise le modèle uniquement pour compléter les infos absentes
+    """
+    entites = extraire_entites_ameliore(texte)
 
+    # Compléter le nom si manquant
+    if not data.get("contact", {}).get("nom") and entites["noms"]:
+        data["contact"]["nom"] = entites["noms"][0]
+
+    # Compléter langues si vides
+    if not data.get("langues"):
+        data["langues"] = entites.get("langues", [])
+
+    return data
 
 # =============================================================================
 # TEST

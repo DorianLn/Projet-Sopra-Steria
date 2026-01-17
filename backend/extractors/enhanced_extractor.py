@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Chemin vers le modèle entraîné (relatif au dossier backend)
-TRAINED_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_pipeline"
+# Le modèle textcat contient NER + TextCategorizer (322 exemples)
+TRAINED_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_pipeline" / "textcat"
 BASE_MODEL = "fr_core_news_md"
 
 # Labels NER personnalisés

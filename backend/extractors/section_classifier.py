@@ -81,6 +81,15 @@ DATE_REGEXES = [
 ]
 
 # ---------------------
+# Configuration constants
+# ---------------------
+# Nombre minimal de lignes pour qu'une section soit valide
+MIN_SECTION_LINES = 2
+
+# Distance maximale en caractères pour associer une entité (école/entreprise) à une autre (diplôme/poste)
+PROXIMITY_THRESHOLD = 200
+
+# ---------------------
 # 1️ Extraction de base
 # ---------------------
 def extraire_competences_langues(texte):
@@ -561,8 +570,8 @@ def detecter_sections_avec_textcat(texte: str) -> dict:
     """
     Utilise le modèle TextCat entraîné pour détecter automatiquement les sections d'un CV.
     
-    PRIORITÉ: Cette fonction utilise le modèle ML entraîné (42 exemples, 10 catégories)
-    au lieu de chercher des mots-clés avec des regex.
+    PRIORITÉ: Cette fonction utilise le modèle ML entraîné au lieu de chercher 
+    des mots-clés avec des regex.
     
     Args:
         texte: Le texte complet du CV
@@ -598,8 +607,8 @@ def detecter_sections_avec_textcat(texte: str) -> dict:
         # Trouver le prochain titre
         next_line_num = titres_potentiels[idx + 1][0] if idx + 1 < len(titres_potentiels) else len(lignes)
         
-        # Extraire le texte de la section (au moins 3 lignes pour avoir du contexte)
-        if next_line_num - line_num < 2:
+        # Extraire le texte de la section (au moins MIN_SECTION_LINES lignes pour avoir du contexte)
+        if next_line_num - line_num < MIN_SECTION_LINES:
             continue
         
         section_lines = lignes[line_num:next_line_num]
@@ -1217,7 +1226,7 @@ def classifier_formations_experiences(texte: str, entites: dict, dates: List[str
             idx_ecole = texte.lower().find(ecole_clean.lower())
             idx_dip = texte.lower().find(dip.lower())
             if idx_ecole != -1 and idx_dip != -1:
-                if abs(idx_ecole - idx_dip) < 200:  # Proximité de 200 caractères
+                if abs(idx_ecole - idx_dip) < PROXIMITY_THRESHOLD:
                     diplome = dip
                     break
         
@@ -1247,7 +1256,7 @@ def classifier_formations_experiences(texte: str, entites: dict, dates: List[str
             idx_ent = texte.lower().find(entreprise_clean.lower())
             idx_poste = texte.lower().find(p.lower())
             if idx_ent != -1 and idx_poste != -1:
-                if abs(idx_ent - idx_poste) < 200:
+                if abs(idx_ent - idx_poste) < PROXIMITY_THRESHOLD:
                     poste = p.title()
                     break
         

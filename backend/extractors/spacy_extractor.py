@@ -138,7 +138,7 @@ def load_spacy_model():
     Le modèle NER (cv_pipeline/ner) contient les labels personnalisés:
     - PERSON_NAME, COMPANY, SCHOOL, DIPLOMA, JOB_TITLE, SKILL, LANGUAGE, etc.
     
-    Entraîné sur 125 exemples annotés.
+    Entraîné sur 125 exemples annotés avec 9 labels personnalisés.
     """
     # Essayer de charger le modèle NER avec labels personnalisés
     if NER_MODEL_PATH.exists():
@@ -180,7 +180,7 @@ def get_textcat_model():
     - HEADER, PROFILE, EDUCATION, EXPERIENCE, SKILLS, LANGUAGES, 
       PROJECTS, CERTIFICATIONS, INTERESTS, OTHER
     
-    Entraîné sur 42 exemples annotés.
+    Entraîné sur 42 exemples annotés avec 10 catégories de sections.
     """
     global _textcat_nlp
     

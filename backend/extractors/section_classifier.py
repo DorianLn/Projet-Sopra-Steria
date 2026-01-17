@@ -10,12 +10,12 @@ from datetime import datetime
 
 # Import adaptatif pour spacy_extractor
 try:
-    from extractors.spacy_extractor import extraire_entites
+    from extractors.spacy_extractor import extraire_entites, classifier_section_texte
 except ImportError:
     try:
-        from .spacy_extractor import extraire_entites
+        from .spacy_extractor import extraire_entites, classifier_section_texte
     except ImportError:
-        from spacy_extractor import extraire_entites
+        from spacy_extractor import extraire_entites, classifier_section_texte
 
 console = Console()
 
@@ -557,6 +557,70 @@ def is_valid_company(name: str) -> bool:
     return True
 
 
+def detecter_sections_avec_textcat(texte: str) -> dict:
+    """
+    Utilise le modèle TextCat entraîné pour détecter automatiquement les sections d'un CV.
+    
+    PRIORITÉ: Cette fonction utilise le modèle ML entraîné (42 exemples, 10 catégories)
+    au lieu de chercher des mots-clés avec des regex.
+    
+    Args:
+        texte: Le texte complet du CV
+    
+    Returns:
+        dict: {categorie: texte_section} pour chaque section détectée
+              Catégories possibles: EDUCATION, EXPERIENCE, SKILLS, LANGUAGES, etc.
+    """
+    sections = {}
+    
+    # Diviser le texte en lignes
+    lignes = texte.split('\n')
+    titres_potentiels = []
+    
+    # Détecter les titres: lignes courtes (<50 chars), majoritairement en majuscules
+    for i, ligne in enumerate(lignes):
+        ligne_stripped = ligne.strip()
+        if not ligne_stripped:
+            continue
+        
+        # Un titre de section est généralement:
+        # - Court (< 50 caractères)
+        # - En majuscules ou commence par une majuscule
+        # - Pas de ponctuation complexe
+        is_short = len(ligne_stripped) < 50
+        is_uppercase = sum(1 for c in ligne_stripped if c.isupper()) / max(len(ligne_stripped), 1) > 0.4
+        
+        if is_short and is_uppercase:
+            titres_potentiels.append((i, ligne_stripped))
+    
+    # Pour chaque titre potentiel, extraire la section jusqu'au prochain titre
+    for idx, (line_num, titre) in enumerate(titres_potentiels):
+        # Trouver le prochain titre
+        next_line_num = titres_potentiels[idx + 1][0] if idx + 1 < len(titres_potentiels) else len(lignes)
+        
+        # Extraire le texte de la section (au moins 3 lignes pour avoir du contexte)
+        if next_line_num - line_num < 2:
+            continue
+        
+        section_lines = lignes[line_num:next_line_num]
+        section_text = '\n'.join(section_lines)
+        
+        # Classifier cette section avec TextCat
+        categorie, score = classifier_section_texte(section_text, seuil_confiance=0.5)
+        
+        # Si la section est déjà présente, garder celle avec le meilleur score
+        if categorie != "OTHER":
+            if categorie not in sections or score > sections[categorie].get('score', 0):
+                sections[categorie] = {
+                    'texte': section_text,
+                    'score': score,
+                    'titre': titre
+                }
+    
+    # Retourner seulement les textes des sections
+    return {cat: info['texte'] for cat, info in sections.items()}
+
+
 def extract_section_text(texte: str, section_names: List[str]) -> Optional[str]:
     """Extrait le texte d'une section spécifique du CV."""
     pattern = r'(?:' + '|'.join(section_names) + r')\s*[:\-\n]+(.+?)(?=\n\s*(?:Formations?|Expériences?|Compétences?|Langues?|Projets?|Certifications?|Loisirs?|Centres?\s+d\'intérêt)\s*[:\-\n]|$)'
@@ -567,13 +631,22 @@ def extract_section_text(texte: str, section_names: List[str]) -> Optional[str]:
 def parse_formation_section(texte: str) -> List[dict]:
     """
     Parse la section Formations du CV de manière structurée.
-    Cherche les patterns: Date - École - Diplôme ou École - Diplôme (Date)
+    
+    PRIORITÉ: Utilise d'abord le modèle TextCat pour détecter la section EDUCATION,
+    puis applique les patterns de parsing structurés.
+    
+    Fallback: Si TextCat ne trouve rien, utilise la recherche par mots-clés.
     """
     formations = []
     
-    # Chercher la section Formations
-    formation_keywords = ["FORMATION", "FORMATIONS", "ÉTUDES", "ETUDES", "ÉDUCATION", "EDUCATION", "CURSUS", "PARCOURS ACADÉMIQUE", "PARCOURS SCOLAIRE"]
-    section_text = extract_section_text(texte, formation_keywords)
+    # === PRIORITÉ 1: Utiliser TextCat pour détecter la section EDUCATION ===
+    sections_ml = detecter_sections_avec_textcat(texte)
+    section_text = sections_ml.get("EDUCATION")
+    
+    # === FALLBACK: Recherche par mots-clés si TextCat n'a rien trouvé ===
+    if not section_text:
+        formation_keywords = ["FORMATION", "FORMATIONS", "ÉTUDES", "ETUDES", "ÉDUCATION", "EDUCATION", "CURSUS", "PARCOURS ACADÉMIQUE", "PARCOURS SCOLAIRE"]
+        section_text = extract_section_text(texte, formation_keywords)
     
     if not section_text:
         return formations
@@ -754,14 +827,24 @@ def extract_diploma_school(text: str) -> Tuple[Optional[str], Optional[str]]:
 def parse_experience_section_v2(texte: str) -> List[dict]:
     """
     Parse la section Expériences du CV de manière structurée (version améliorée).
+    
+    PRIORITÉ: Utilise d'abord le modèle TextCat pour détecter la section EXPERIENCE,
+    puis applique les patterns de parsing structurés.
+    
+    Fallback: Si TextCat ne trouve rien, utilise la recherche par mots-clés.
     """
     experiences = []
     
-    # Chercher la section Expériences
-    exp_keywords = ["EXPÉRIENCE", "EXPERIENCE", "EXPÉRIENCES", "EXPERIENCES", 
-                    "EXPÉRIENCE PROFESSIONNELLE", "EXPÉRIENCES PROFESSIONNELLES",
-                    "PARCOURS PROFESSIONNEL", "PROFESSIONAL EXPERIENCE"]
-    section_text = extract_section_text(texte, exp_keywords)
+    # === PRIORITÉ 1: Utiliser TextCat pour détecter la section EXPERIENCE ===
+    sections_ml = detecter_sections_avec_textcat(texte)
+    section_text = sections_ml.get("EXPERIENCE")
+    
+    # === FALLBACK: Recherche par mots-clés si TextCat n'a rien trouvé ===
+    if not section_text:
+        exp_keywords = ["EXPÉRIENCE", "EXPERIENCE", "EXPÉRIENCES", "EXPERIENCES", 
+                        "EXPÉRIENCE PROFESSIONNELLE", "EXPÉRIENCES PROFESSIONNELLES",
+                        "PARCOURS PROFESSIONNEL", "PROFESSIONAL EXPERIENCE"]
+        section_text = extract_section_text(texte, exp_keywords)
     
     if not section_text:
         return experiences

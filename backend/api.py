@@ -15,10 +15,9 @@ logging.basicConfig(level=logging.DEBUG)
 # Ajoute le dossier parent au PYTHONPATH pour trouver analyser_cv.py
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from extractors.pdf_to_docx import convert_pdf_to_docx
-from analyser_cv import lire_cv_docx, extraire_infos_cv
 from extractors.section_classifier import build_structured_json
 from extractors.version_mapper import normalize_old_cv_to_new, convert_v2_to_old_format
+from extractors.robust_extractor import extract_cv_robust
 
 app = Flask(__name__)
 CORS(app)  # Autorise les requêtes cross-origin
@@ -34,49 +33,25 @@ def allowed_file(filename):
 
 def process_cv(file_path):
     try:
-        # Conversion si PDF → DOCX
-        if file_path.suffix.lower() == '.pdf':
-            temp_docx = file_path.parent / f"{file_path.stem}_temp.docx"
-            if not convert_pdf_to_docx(str(file_path), str(temp_docx)):
-                return None, "Erreur PDF -> DOCX"
-            file_path = temp_docx
+        # 🔥 NOUVEAU PIPELINE ULTRA SIMPLE
+        resultats = extract_cv_robust(str(file_path))
 
-        # Lecture du DOCX
-        texte_cv = lire_cv_docx(str(file_path))
-
-        # Appel de la même fonction que le script CLI
-        infos_brutes = extraire_infos_cv(texte_cv)
-
-        # Build complet + classification + SpaCy
-        resultats = build_structured_json(
-            emails=infos_brutes["emails"],
-            telephones=infos_brutes["telephones"],
-            adresses=infos_brutes["adresses"],
-            dates=infos_brutes["dates"],
-            texte_cv=texte_cv
-        )
-
-        # Sauvegarde JSON propre
+        # Sauvegarde JSON
         nom_candidat = (resultats.get("contact", {}).get("nom") or "Inconnu").replace(" ", "_")
         json_filename = f"CV_{nom_candidat}.json"
         json_path = Path("data/output") / json_filename
 
-        os.makedirs("data/output", exist_ok=True) 
+        os.makedirs("data/output", exist_ok=True)
 
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(resultats, f, ensure_ascii=False, indent=2)
 
         resultats["json_filename"] = json_filename
 
-
-        if str(file_path).endswith('_temp.docx'):
-            os.remove(file_path)
-
         return resultats, None
 
     except Exception as e:
         return None, str(e)
-
 
 
 @app.route('/api/cv/analyze', methods=['POST'])

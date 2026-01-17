@@ -1113,105 +1113,104 @@ def classifier_formations_experiences(texte: str, entites: dict, dates: List[str
     formations, experiences = [], []
     date_spans = extract_date_spans(texte)
 
-    # === PRIORITÉ 1: Parser les sections directement ===
-    # Cela donne de meilleurs résultats que l'extraction par entités NER
+    # === PRIORITÉ 1: Utiliser les entités du modèle NER entraîné ===
+    # Le modèle a été entraîné sur 322 exemples, il faut lui faire confiance !
     
-    parsed_formations = parse_formation_section(texte)
-    if parsed_formations:
-        for f in parsed_formations:
-            if f.get("etablissement") or f.get("diplome"):
-                # Valider l'établissement si présent
-                if f.get("etablissement") and not is_valid_school(f["etablissement"]):
-                    continue
-                formations.append({
-                    "etablissement": f.get("etablissement"),
-                    "dates": f.get("dates"),
-                    "diplome": f.get("diplome")
-                })
-    
-    parsed_experiences = parse_experience_section_v2(texte)
-    if parsed_experiences:
-        for e in parsed_experiences:
-            if e.get("entreprise") and is_valid_company(e["entreprise"]):
-                experiences.append(e)
-    
-    # Si les parsers de section n'ont rien trouvé, utiliser les entités NER
-    if not formations and not experiences:
-        # === FALLBACK: Utiliser les entités spécifiques du modèle entraîné ===
+    # 1. Formations depuis les écoles détectées par le modèle entraîné
+    for ecole in entites.get("ecoles", []):
+        ecole_clean = nettoyer_nom_organisation(ecole)
+        if not ecole_clean or ecole_clean.lower() in STOP_ORG:
+            continue
+        # Valider que c'est un vrai établissement
+        if not is_valid_school(ecole_clean):
+            continue
         
-        # 1. Formations depuis les écoles détectées par le modèle entraîné
-        for ecole in entites.get("ecoles", []):
-            ecole_clean = nettoyer_nom_organisation(ecole)
-            if not ecole_clean or ecole_clean.lower() in STOP_ORG:
-                continue
-            # Valider que c'est un vrai établissement
-            if not is_valid_school(ecole_clean):
-                continue
-            
-            date_assoc = find_closest_date_by_char(ecole_clean, texte, date_spans)
-            
-            # Chercher le diplôme associé
-            diplome = None
-            for dip in entites.get("diplomes", []):
-                # Vérifier si le diplôme est proche de l'école dans le texte
-                idx_ecole = texte.lower().find(ecole_clean.lower())
-                idx_dip = texte.lower().find(dip.lower())
-                if idx_ecole != -1 and idx_dip != -1:
-                    if abs(idx_ecole - idx_dip) < 200:  # Proximité de 200 caractères
-                        diplome = dip
-                        break
-            
-            formations.append({
-                "etablissement": ecole_clean,
-                "dates": date_assoc,
-                "diplome": diplome
-            })
+        date_assoc = find_closest_date_by_char(ecole_clean, texte, date_spans)
         
-        # 2. Expériences depuis les entreprises détectées par le modèle entraîné
-        ecoles_lower = {e.lower() for e in entites.get("ecoles", [])}
-        for entreprise in entites.get("organisations", []):
-            entreprise_clean = nettoyer_nom_organisation(entreprise)
-            if not entreprise_clean or entreprise_clean.lower() in STOP_ORG:
-                continue
-            # Éviter les doublons avec les écoles
-            if entreprise_clean.lower() in ecoles_lower:
-                continue
-            if not is_valid_company(entreprise_clean):
-                continue
-            
-            date_assoc = find_closest_date_by_char(entreprise_clean, texte, date_spans)
-            
-            # Chercher le poste associé
-            poste = None
-            for p in entites.get("postes", []):
-                idx_ent = texte.lower().find(entreprise_clean.lower())
-                idx_poste = texte.lower().find(p.lower())
-                if idx_ent != -1 and idx_poste != -1:
-                    if abs(idx_ent - idx_poste) < 200:
-                        poste = p.title()
-                        break
-            
-            if not poste:
-                sentences = re.split(r'[.!\n]', texte)
-                for s in sentences:
-                    if entreprise_clean.lower() in s.lower():
-                        poste = extract_poste_from_context(s)
-                        break
-            
-            if not poste:
-                idx = texte.lower().find(entreprise_clean.lower())
-                if idx != -1:
-                    window = texte[max(0, idx-100):min(len(texte), idx+150)]
-                    poste = extract_poste_from_context(window)
-            
-            experiences.append({
-                "entreprise": entreprise_clean,
-                "poste": poste,
-                "dates": date_assoc,
-                "description": None
-            })
+        # Chercher le diplôme associé
+        diplome = None
+        for dip in entites.get("diplomes", []):
+            # Vérifier si le diplôme est proche de l'école dans le texte
+            idx_ecole = texte.lower().find(ecole_clean.lower())
+            idx_dip = texte.lower().find(dip.lower())
+            if idx_ecole != -1 and idx_dip != -1:
+                if abs(idx_ecole - idx_dip) < 200:  # Proximité de 200 caractères
+                    diplome = dip
+                    break
+        
+        formations.append({
+            "etablissement": ecole_clean,
+            "dates": date_assoc,
+            "diplome": diplome
+        })
+    
+    # 2. Expériences depuis les entreprises détectées par le modèle entraîné
+    ecoles_lower = {e.lower() for e in entites.get("ecoles", [])}
+    for entreprise in entites.get("organisations", []):
+        entreprise_clean = nettoyer_nom_organisation(entreprise)
+        if not entreprise_clean or entreprise_clean.lower() in STOP_ORG:
+            continue
+        # Éviter les doublons avec les écoles
+        if entreprise_clean.lower() in ecoles_lower:
+            continue
+        if not is_valid_company(entreprise_clean):
+            continue
+        
+        date_assoc = find_closest_date_by_char(entreprise_clean, texte, date_spans)
+        
+        # Chercher le poste associé
+        poste = None
+        for p in entites.get("postes", []):
+            idx_ent = texte.lower().find(entreprise_clean.lower())
+            idx_poste = texte.lower().find(p.lower())
+            if idx_ent != -1 and idx_poste != -1:
+                if abs(idx_ent - idx_poste) < 200:
+                    poste = p.title()
+                    break
+        
+        if not poste:
+            sentences = re.split(r'[.!\n]', texte)
+            for s in sentences:
+                if entreprise_clean.lower() in s.lower():
+                    poste = extract_poste_from_context(s)
+                    break
+        
+        if not poste:
+            idx = texte.lower().find(entreprise_clean.lower())
+            if idx != -1:
+                window = texte[max(0, idx-100):min(len(texte), idx+150)]
+                poste = extract_poste_from_context(window)
+        
+        experiences.append({
+            "entreprise": entreprise_clean,
+            "poste": poste,
+            "dates": date_assoc,
+            "description": None
+        })
+    
+    # === FALLBACK: Si NER n'a rien trouvé, utiliser les parsers heuristiques ===
+    if not formations:
+        parsed_formations = parse_formation_section(texte)
+        if parsed_formations:
+            for f in parsed_formations:
+                if f.get("etablissement") or f.get("diplome"):
+                    # Valider l'établissement si présent
+                    if f.get("etablissement") and not is_valid_school(f["etablissement"]):
+                        continue
+                    formations.append({
+                        "etablissement": f.get("etablissement"),
+                        "dates": f.get("dates"),
+                        "diplome": f.get("diplome")
+                    })
+    
+    if not experiences:
+        parsed_experiences = parse_experience_section_v2(texte)
+        if parsed_experiences:
+            for e in parsed_experiences:
+                if e.get("entreprise") and is_valid_company(e["entreprise"]):
+                    experiences.append(e)
 
-    # === FALLBACK: Logique originale pour les organisations non classifiées ===
+    # === ENRICHISSEMENT: Ajouter les organisations non classifiées par le NER ===
     formations_lower = {f["etablissement"].lower() for f in formations if f.get("etablissement")}
     experiences_lower = {e["entreprise"].lower() for e in experiences if e.get("entreprise")}
     

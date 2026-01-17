@@ -7,8 +7,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Chemin vers le modèle entraîné
-TRAINED_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_ner"
+# Chemin vers le modèle entraîné (cv_pipeline avec NER + TextCat, 322 exemples)
+TRAINED_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_pipeline"
 BASE_MODEL = "fr_core_news_md"
 
 # Titres de sections courants à ignorer pour les noms
@@ -130,20 +130,32 @@ def clean_name(text: str) -> str:
 
 def load_spacy_model():
     """
-    Charge le modèle spaCy : utilise le modèle entraîné s'il existe,
-    sinon charge le modèle de base fr_core_news_md
+    Charge le modèle spaCy : utilise le modèle cv_pipeline entraîné s'il existe,
+    sinon tente cv_ner, sinon charge le modèle de base fr_core_news_md.
+    
+    cv_pipeline contient NER (322 exemples) + TextCat pour classification de sections
     """
     if TRAINED_MODEL_PATH.exists():
         try:
             logger.info(f"Chargement du modèle entraîné depuis: {TRAINED_MODEL_PATH}")
             model = spacy.load(str(TRAINED_MODEL_PATH))
-            logger.info("✓ Modèle entraîné chargé avec succès")
+            logger.info("✓ Modèle cv_pipeline chargé avec succès (NER + TextCat, 322 exemples)")
             return model, True
         except Exception as e:
-            logger.warning(f"Erreur lors du chargement du modèle entraîné: {e}")
-            logger.info(f"Fallback vers le modèle de base: {BASE_MODEL}")
+            logger.warning(f"Erreur lors du chargement du modèle cv_pipeline: {e}")
     
-    logger.info(f"Chargement du modèle de base: {BASE_MODEL}")
+    # Fallback vers cv_ner si cv_pipeline échoue
+    cv_ner_path = Path(__file__).parent.parent / "models" / "cv_ner"
+    if cv_ner_path.exists():
+        try:
+            logger.info(f"Tentative de chargement cv_ner depuis: {cv_ner_path}")
+            model = spacy.load(str(cv_ner_path))
+            logger.info("✓ Modèle cv_ner chargé (fallback)")
+            return model, True
+        except Exception as e:
+            logger.warning(f"Erreur lors du chargement du modèle cv_ner: {e}")
+    
+    logger.info(f"Fallback vers le modèle de base: {BASE_MODEL}")
     return spacy.load(BASE_MODEL), False
 
 # Charge le modèle de langue français (entraîné ou base)

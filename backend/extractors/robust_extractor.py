@@ -1,8 +1,6 @@
 """
 Extracteur robuste - optimisé pour multiples formats de CV
-Ce module fournit des fonctions pour extraire et analyser les CV au format PDF et DOCX.
-Il inclut des étapes pour l'extraction de texte brut, le nettoyage, la détection des sections,
-et le parsing des informations clés telles que le contact, les compétences, les formations,
+Basé sur cas réels : Sopra, étudiants, CV seniors
 """
 
 import re
@@ -25,7 +23,10 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     try:
         with pdfplumber.open(pdf_path) as pdf:
             for page in pdf.pages:
-                page_text = page.extract_text(x_tolerance=2, y_tolerance=2)
+                page_text = page.extract_text(
+                    x_tolerance=2,
+                    y_tolerance=2
+                )
                 if page_text:
                     text += page_text + "\n"
         return text
@@ -72,16 +73,19 @@ def extract_text(file_path: str) -> str:
 
 
 # ==========================================================
-# NETTOYAGE
+# NETTOYAGE AVANCÉ
 # ==========================================================
 
 def clean_text(text: str) -> str:
+
     patterns = [
         r"C2\s*–\s*Usage restreint",
         r"C3\s*–\s*Confidentiel",
         r"<\?xml.*?\?>",
         r"<.*?>",
         r"©.*Sopra.*",
+        r"\d+/\d+\s*–",
+        r"DocumentFile.*",
         r"Page\s*\d+",
     ]
 
@@ -95,15 +99,43 @@ def clean_text(text: str) -> str:
 
 
 # ==========================================================
-# DÉTECTION DES SECTIONS
+# DÉTECTION FLEXIBLE DES SECTIONS
 # ==========================================================
 
 SECTION_ALIASES = {
-    "competences": ["COMPETENCES", "COMPÉTENCES", "SKILLS", "OUTILS"],
-    "formations": ["FORMATION", "FORMATIONS", "EDUCATION"],
-    "experiences": ["EXPERIENCES", "EXPÉRIENCES", "PARCOURS"],
-    "langues": ["LANGUES", "LANGUAGE"],
-    "loisirs": ["LOISIRS", "CENTRES D’INTÉRÊTS", "HOBBIES"]
+    "competences": [
+        "COMPETENCES",
+        "COMPÉTENCES",
+        "COMPETENCES TECHNIQUES",
+        "COMPETENCES FONCTIONNELLES",
+        "SKILLS",
+        "OUTILS"
+    ],
+    "formations": [
+        "FORMATION",
+        "FORMATIONS",
+        "FORMATION - CERTIFICATION",
+        "FORMATIONS ET LANGUES",
+        "ETUDES",
+        "EDUCATION"
+    ],
+    "experiences": [
+        "EXPERIENCES",
+        "EXPÉRIENCES",
+        "EXPERIENCES PROFESSIONNELLES",
+        "PARCOURS"
+    ],
+    "langues": [
+        "LANGUES",
+        "LANGUE(S)",
+        "LANGUAGES"
+    ],
+    "loisirs": [
+        "LOISIRS",
+        "CENTRES D’INTÉRÊTS",
+        "ACTIVITES EXTRA",
+        "HOBBIES"
+    ]
 }
 
 
@@ -135,7 +167,8 @@ def find_sections(text: str) -> Dict[str, str]:
 
         normalized = normalize_title(clean)
 
-        if normalized in sections:
+        # Si on détecte un vrai titre de section
+        if normalized != "contact":
             current = normalized
             continue
 
@@ -144,8 +177,9 @@ def find_sections(text: str) -> Dict[str, str]:
     return sections
 
 
+
 # ==========================================================
-# PARSING CONTACT (VERSION ULTRA ROBUSTE)
+# PARSING DES SECTIONS
 # ==========================================================
 
 def parse_contact(text: str) -> Dict[str, Any]:
@@ -153,11 +187,8 @@ def parse_contact(text: str) -> Dict[str, Any]:
         "nom": None,
         "email": None,
         "telephone": None,
-        "adresse": None,
-        "titre_profil": None
+        "adresse": None
     }
-
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
 
     email = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text)
     if email:
@@ -165,67 +196,30 @@ def parse_contact(text: str) -> Dict[str, Any]:
 
     tel = re.search(r"(0|\+33)[\s\d\(\)\.]{8,20}", text)
     if tel:
-        result["telephone"] = tel.group(0).strip()
+        result["telephone"] = tel.group(0)
 
-    adr = re.search(r"\d{5}\s+[A-Za-zÀ-ÿ\- ]+", text)
+    adr = re.search(r"\d{5}\s+[A-Za-z\- ]+", text)
     if adr:
         result["adresse"] = adr.group(0)
 
-    nom_regex = re.compile(
-        r"^[A-ZÉÈÊÀÂÎÔÙÛ][a-zéèêàâîôùû]+[\s\-]+[A-ZÉÈÊÀÂÎÔÙÛ]+"
-    )
+    for line in text.split("\n")[:10]:
+        clean = line.strip()
 
-    mots_interdits = [
-        "PO", "PM", "PMO", "BUSINESS", "ANALYST",
-        "DEVELOPPEUR", "INGENIEUR", "ETUDIANT"
-    ]
+        if any(m in clean.lower() for m in ["analyst", "développeur", "ingénieur", "consultant"]):
+            continue
 
-    for line in lines[:12]:
-        if nom_regex.match(line):
-            if not any(m in line.upper() for m in mots_interdits):
-                result["nom"] = line.strip()
-                break
+        if re.match(r"^[A-ZÉÈÊÀÂÎÔÙÛ][a-zéèêàâîôùû]+ [A-ZÉÈÊÀÂÎÔÙÛ]+", clean):
+            result["nom"] = clean
+            break
 
-    if "JLA" in text and not result["nom"]:
-        result["nom"] = "JLA"
-
-    if "AZZAOUI" in text.upper() and not result["nom"]:
-        match = re.search(r"WALLID\s+AZZAOUI", text, re.IGNORECASE)
+    
+    # Si aucun nom détecté mais initiales présentes
+    if result["nom"] is None:
+        match = re.search(r"\b[A-Z]{2,4}\b", text)
         if match:
             result["nom"] = match.group(0)
-
-    if "PATAROT" in text.upper() and not result["nom"]:
-        match = re.search(r"ADÈ?LE\s+PATAROT", text, re.IGNORECASE)
-        if match:
-            result["nom"] = match.group(0)
-
-    titres_possibles = [
-        "Business Analyst",
-        "Développeur",
-        "Product Owner",
-        "Product Manager",
-        "Fullstack",
-        "Backend",
-        "Ingénieur",
-        "Etudiant",
-        "PO / PM / PMO"
-    ]
-
-    for line in lines[:5]:
-        for t in titres_possibles:
-            if t.lower() in line.lower():
-                result["titre_profil"] = line.strip()
-                break
-
-    if "Business Analyst JLA" in text:
-        result["titre_profil"] = "Business Analyst"
 
     return result
-
-
-# ==========================================================
-# PARSING COMPETENCES
-# ==========================================================
 
 def parse_competences(text: str) -> List[str]:
     competences = []
@@ -246,18 +240,19 @@ def parse_competences(text: str) -> List[str]:
     return list(dict.fromkeys(competences))
 
 
-# ==========================================================
-# FORMATIONS (VERSION AMÉLIORÉE)
-# ==========================================================
-
 def parse_formations(text: str) -> List[str]:
 
     formations = []
 
-    mots_formation = [
-        "diplôme", "master", "licence", "bac",
-        "certification", "istqb", "scrum", "pmp",
-        "école", "université"
+    pattern_diplome = re.compile(
+        r"(19|20)\d{2}\s*[–-]\s*.+",
+        re.IGNORECASE
+    )
+
+    mots_cles_diplome = [
+        "diplôme", "master", "licence", "école",
+        "certification", "baccalauréat", "bac",
+        "istqb", "scrum", "psm"
     ]
 
     for line in text.split("\n"):
@@ -266,52 +261,57 @@ def parse_formations(text: str) -> List[str]:
         if not line:
             continue
 
-        if any(m in line.lower() for m in mots_formation):
+        # On garde seulement les vraies formations / diplômes
+        if any(m in line.lower() for m in mots_cles_diplome):
             formations.append(line)
+            continue
 
-        elif re.match(r"(19|20)\d{2}", line):
+        # Années sans mois = plutôt formation
+        if pattern_diplome.match(line) and not re.search(
+            r"(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)",
+            line.lower()
+        ):
             formations.append(line)
 
     return list(dict.fromkeys(formations))
 
 
-# ==========================================================
-# EXPERIENCES
-# ==========================================================
-
 def parse_experiences(text: str) -> List[str]:
 
     experiences = []
 
-    pattern = re.compile(
-        r"(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)?"
-        r".*(19|20)\d{2}.*(–|-).+",
+    pattern_experience = re.compile(
+        r"(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)?\s*"
+        r"(19|20)\d{2}.*(–|-).+",
         re.IGNORECASE
     )
 
     for line in text.split("\n"):
         line = line.strip()
 
-        if pattern.match(line):
+        if pattern_experience.match(line):
             experiences.append(line)
 
     return experiences
 
-
 def parse_langues(text: str):
-    result = []
-    for line in text.split("\n"):
-        if any(m in line.lower() for m in ["anglais", "français", "espagnol", "arabe"]):
-            result.append(line.strip())
-    return result
 
+    result = []
+
+    for line in text.split("\n"):
+        if "français" in line.lower() or "anglais" in line.lower():
+            result.append(line.strip())
+
+    return result
 
 def parse_loisirs(text: str) -> List[str]:
     loisirs = []
+
     for line in text.split("\n"):
         line = line.strip("-• ")
         if line:
             loisirs.append(line)
+
     return loisirs
 
 

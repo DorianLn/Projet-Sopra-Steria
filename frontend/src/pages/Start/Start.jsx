@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import Navbar from '../../components/Navbar';
-import SopraLogo from '../../components/SopraLogo';
+import React, { useState } from "react";
+import Navbar from "../../components/Navbar";
+import SopraLogo from "../../components/SopraLogo";
 import {
   Upload,
   FileText,
@@ -8,8 +8,8 @@ import {
   Download,
   BarChart3,
   FileDown,
-  Eye
-} from 'lucide-react';
+  Eye,
+} from "lucide-react";
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -17,12 +17,19 @@ import {
   LineElement,
   Filler,
   Tooltip,
-  Legend
-} from 'chart.js';
-import { Radar } from 'react-chartjs-2';
-import './Start.css';
+  Legend,
+} from "chart.js";
+import { Radar } from "react-chartjs-2";
+import "./Start.css";
 
-ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+ChartJS.register(
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend
+);
 
 // ---- Helpers ----
 const computeExtractionScore = (result) => {
@@ -37,7 +44,7 @@ const computeExtractionScore = (result) => {
     langues: 10,
     projets: 5,
     certifications: 3,
-    disponibilite: 2
+    disponibilite: 2,
   };
 
   if (result.contact?.nom && result.contact?.email) score += weights.contact;
@@ -53,7 +60,10 @@ const computeExtractionScore = (result) => {
   let penalties = 0;
 
   // Nom mal extrait (contient un métier ou trop de mots)
-  if (result.contact?.nom && /développeur|ingénieur|chef|manager/i.test(result.contact.nom)) {
+  if (
+    result.contact?.nom &&
+    /développeur|ingénieur|chef|manager/i.test(result.contact.nom)
+  ) {
     penalties += 10;
   }
 
@@ -66,12 +76,13 @@ const computeExtractionScore = (result) => {
   });
 
   // Exp sans dates
-  const emptyDatesCount = result.experiences?.filter(e => !e.dates)?.length || 0;
+  const emptyDatesCount =
+    result.experiences?.filter((e) => !e.dates)?.length || 0;
   penalties += emptyDatesCount * 5;
 
   // Doublons entreprises
   const entreprises = new Set();
-  result.experiences?.forEach(e => {
+  result.experiences?.forEach((e) => {
     if (entreprises.has(e.entreprise)) penalties += 5;
     entreprises.add(e.entreprise);
   });
@@ -88,12 +99,18 @@ const computeProfessionalCvScore = (result) => {
   // 1) Richesse compétences
   const comp = [
     ...(result.competences?.techniques || []),
-    ...(result.competences?.fonctionnelles || [])
+    ...(result.competences?.fonctionnelles || []),
   ];
-  const hasBackend = comp.some(c => /python|java|spring|node|django|c\+\+/i.test(c));
-  const hasFrontend = comp.some(c => /react|angular|vue|html|css|javascript/i.test(c));
-  const hasCloud = comp.some(c => /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd/i.test(c));
-  const hasSoft = comp.some(c => /communication|leadership|gestion/i.test(c));
+  const hasBackend = comp.some((c) =>
+    /python|java|spring|node|django|c\+\+/i.test(c)
+  );
+  const hasFrontend = comp.some((c) =>
+    /react|angular|vue|html|css|javascript/i.test(c)
+  );
+  const hasCloud = comp.some((c) =>
+    /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd/i.test(c)
+  );
+  const hasSoft = comp.some((c) => /communication|leadership|gestion/i.test(c));
 
   score += (hasBackend + hasFrontend + hasCloud + hasSoft) * 5; // max 20
 
@@ -106,8 +123,10 @@ const computeProfessionalCvScore = (result) => {
 
   // 3) Études
   const formations = result.formations || [];
-  if (formations.some(f => /master|bac\+5|ingénieur/i.test(f.etablissement))) score += 15;
-  else if (formations.some(f => /licence|bac\+3/i.test(f.etablissement))) score += 10;
+  if (formations.some((f) => /master|bac\+5|ingénieur/i.test(f.etablissement)))
+    score += 15;
+  else if (formations.some((f) => /licence|bac\+3/i.test(f.etablissement)))
+    score += 10;
   else if (formations.length) score += 5;
 
   // 4) Projets / réalisations
@@ -125,7 +144,11 @@ const computeProfessionalCvScore = (result) => {
   // incohérence simple : dates inversées
   result.experiences?.forEach((exp) => {
     const years = exp.dates?.match(/(19|20)\d{2}/g);
-    if (years && years.length === 2 && parseInt(years[1]) < parseInt(years[0])) {
+    if (
+      years &&
+      years.length === 2 &&
+      parseInt(years[1]) < parseInt(years[0])
+    ) {
       coherence -= 5;
     }
   });
@@ -144,9 +167,8 @@ const computeProfessionalCvScore = (result) => {
   return Math.min(100, score);
 };
 
-
 const estimateExperienceLevel = (result) => {
-  if (!result?.experiences?.length) return { label: 'Non déterminé', years: 0 };
+  if (!result?.experiences?.length) return { label: "Non déterminé", years: 0 };
 
   let minYear = 9999;
   let maxYear = 0;
@@ -176,12 +198,13 @@ const estimateExperienceLevel = (result) => {
     }
   });
 
-  if (minYear === 9999 || maxYear === 0) return { label: 'Non déterminé', years: 0 };
+  if (minYear === 9999 || maxYear === 0)
+    return { label: "Non déterminé", years: 0 };
   const years = Math.max(0, maxYear - minYear + 1);
 
-  let label = 'Junior';
-  if (years >= 5) label = 'Senior';
-  else if (years >= 2) label = 'Intermédiaire';
+  let label = "Junior";
+  if (years >= 5) label = "Senior";
+  else if (years >= 2) label = "Intermédiaire";
 
   return { label, years };
 };
@@ -262,18 +285,18 @@ const buildRadarData = (result) => {
   };
 };
 
-
 const exportPdf = () => {
   // version simple : impression de la page (l’utilisateur peut choisir "Enregistrer en PDF")
   window.print();
 };
 
-
 const formatExperience = (text) => {
   if (!text) return { line1: text, line2: "" };
 
   // Extraire la date
-  const dateMatch = text.match(/(19|20)\d{2}\s?[–-]\s?(19|20)\d{2}|(19|20)\d{2}/);
+  const dateMatch = text.match(
+    /(19|20)\d{2}\s?[–-]\s?(19|20)\d{2}|(19|20)\d{2}/
+  );
 
   if (!dateMatch) {
     return { line1: text, line2: "" };
@@ -300,6 +323,21 @@ const formatExperience = (text) => {
   let title = rest;
   let description = "";
 
+  // --- AJOUT MINIMAL : gestion des multiples "Projet individuel" (cas Léo) ---
+  if (rest.includes("Projet individuel")) {
+    const parts = rest
+      .split("Projet individuel")
+      .map((p) => p.trim())
+      .filter((p) => p);
+
+    const mainTitle = parts.shift();
+
+    return {
+      line1: `${date} ${mainTitle} : Projets`,
+      line2: parts.map((p) => "Projet individuel " + p).join("\n"),
+    };
+  }
+
   if (index !== -1) {
     title = rest.substring(0, index).trim();
     description = rest.substring(index).trim();
@@ -307,7 +345,7 @@ const formatExperience = (text) => {
 
   return {
     line1: `${date}  ${title}`,
-    line2: description
+    line2: description,
   };
 };
 
@@ -316,7 +354,7 @@ const formatFormationSimple = (input) => {
   if (typeof input === "object" && input !== null) {
     return {
       title: input.title || "",
-      description: input.year ? `(${input.year})` : ""
+      description: input.year ? `(${input.year})` : "",
     };
   }
 
@@ -333,16 +371,15 @@ const formatFormationSimple = (input) => {
 
   return {
     title: title.trim(),
-    description: rest.join(":").trim()
+    description: rest.join(":").trim(),
   };
 };
-
 
 const formatBoldBeforeColon = (input) => {
   if (typeof input === "object" && input !== null) {
     return {
       title: input.title || "",
-      description: input.description || ""
+      description: input.description || "",
     };
   }
 
@@ -358,10 +395,9 @@ const formatBoldBeforeColon = (input) => {
 
   return {
     title: title.trim(),
-    description: rest.join(":").trim()
+    description: rest.join(":").trim(),
   };
 };
-
 
 const normalizeCvData = (data) => {
   if (!data) return data;
@@ -370,9 +406,10 @@ const normalizeCvData = (data) => {
   let result = JSON.parse(JSON.stringify(data));
 
   // ========== DETECTION TYPE JLA ==========
-  const isJla = Array.isArray(result.experiences) &&
-    result.experiences.some(line =>
-      typeof line === "string" && !/(19|20)\d{2}/.test(line)
+  const isJla =
+    Array.isArray(result.experiences) &&
+    result.experiences.some(
+      (line) => typeof line === "string" && !/(19|20)\d{2}/.test(line)
     );
 
   if (!isJla) {
@@ -388,15 +425,41 @@ const normalizeCvData = (data) => {
   let grouped = [];
   let current = null;
 
-  result.experiences.forEach(line => {
+  const actionVerbs = [
+    "Réponses",
+    "Assurer",
+    "Développer",
+    "Procéduriser",
+    "Rédaction",
+    "Accompagner",
+    "Mettre en place",
+    "Suivi",
+    "Participation",
+    "Réalisation",
+  ];
+
+  result.experiences.forEach((line) => {
     const isTitle = /(19|20)\d{2}/.test(line);
 
     if (isTitle) {
       if (current) grouped.push(current);
 
+      let title = line;
+      let firstBullet = null;
+
+      // Détection d'un verbe d’action collé au titre
+      for (let verb of actionVerbs) {
+        const index = line.indexOf(" " + verb + " ");
+        if (index !== -1) {
+          title = line.substring(0, index).trim();
+          firstBullet = line.substring(index + 1).trim();
+          break;
+        }
+      }
+
       current = {
-        title: line,
-        bullets: []
+        title: title,
+        bullets: firstBullet ? [firstBullet] : [],
       };
     } else if (current) {
       current.bullets.push(line);
@@ -407,10 +470,9 @@ const normalizeCvData = (data) => {
 
   result.experiences = grouped;
 
-
   // ---- 2) FORMATIONS ----
   if (Array.isArray(result.formations)) {
-    result.formations = result.formations.map(f => {
+    result.formations = result.formations.map((f) => {
       if (typeof f !== "string") return f;
 
       const match = f.match(/^((19|20)\d{2})\s*[-–]?\s*(.*)$/);
@@ -418,22 +480,21 @@ const normalizeCvData = (data) => {
       if (match) {
         return {
           title: match[3],
-          year: match[1]
+          year: match[1],
         };
       }
 
       return {
         title: f,
-        year: ""
+        year: "",
       };
     });
   }
 
-
   // ---- 3) COMPETENCES FONCTIONNELLES ----
   if (Array.isArray(result.competences?.fonctionnelles)) {
-    result.competences.fonctionnelles =
-      result.competences.fonctionnelles.map(c => {
+    result.competences.fonctionnelles = result.competences.fonctionnelles.map(
+      (c) => {
         if (!c.includes(":")) {
           return { title: c, description: "" };
         }
@@ -442,15 +503,14 @@ const normalizeCvData = (data) => {
 
         return {
           title: title.trim(),
-          description: rest.join(":").trim()
+          description: rest.join(":").trim(),
         };
-      });
+      }
+    );
   }
 
   return result;
 };
-
-
 
 const Start = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -460,49 +520,48 @@ const Start = () => {
   const [error, setError] = useState(null);
   const [modifiedDocx, setModifiedDocx] = useState(null);
 
-// --- Conversion DOCX modifié en PDF ---
+  // --- Conversion DOCX modifié en PDF ---
   const convertDocxToPdf = async () => {
     if (!modifiedDocx) {
       alert("Veuillez sélectionner un fichier .docx modifié.");
       return;
     }
-  
+
     const formData = new FormData();
     formData.append("file", modifiedDocx);
-  
+
     try {
       const response = await fetch("http://localhost:5000/api/cv/convert", {
         method: "POST",
         body: formData,
       });
-  
+
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || "Erreur lors de la conversion");
       }
-  
+
       // Récupérer le PDF retourné
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-  
+
       const a = document.createElement("a");
       a.href = url;
       a.download = "CV_Final.pdf";
       a.click();
-  
+
       URL.revokeObjectURL(url);
     } catch (e) {
       alert("Erreur : " + e.message);
     }
   };
-  
 
   // --- Gestion du drag & drop ---
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
-    else if (e.type === 'dragleave') setDragActive(false);
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
   };
 
   const handleDrop = (e) => {
@@ -516,33 +575,34 @@ const Start = () => {
   // --- Sélection du fichier ---
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
-    if (file && (file.name.endsWith('.docx') || file.name.endsWith('.pdf'))) {
+    if (file && (file.name.endsWith(".docx") || file.name.endsWith(".pdf"))) {
       setSelectedFile(file);
       setError(null);
       setResult(null);
     } else {
-      alert('Veuillez sélectionner un fichier .docx ou .pdf');
+      alert("Veuillez sélectionner un fichier .docx ou .pdf");
     }
   };
 
   // --- Soumission vers le backend ---
   const handleSubmit = async () => {
-    if (!selectedFile) return alert('Veuillez sélectionner un fichier');
+    if (!selectedFile) return alert("Veuillez sélectionner un fichier");
 
     const formData = new FormData();
-    formData.append('file', selectedFile);
+    formData.append("file", selectedFile);
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/cv/analyze', {
-        method: 'POST',
-        body: formData
+      const response = await fetch("http://localhost:5000/api/cv/analyze", {
+        method: "POST",
+        body: formData,
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erreur lors de l’analyse');
+      if (!response.ok)
+        throw new Error(data.error || "Erreur lors de l’analyse");
 
       setResult(normalizeCvData(data));
     } catch (err) {
@@ -829,7 +889,13 @@ const Start = () => {
                               return (
                                 <>
                                   <strong>{e.line1}</strong>
-                                  {e.line2 && <div>{e.line2}</div>}
+                                  {e.line2 && (
+                                    <div>
+                                      {e.line2.split("\n").map((l, idx) => (
+                                        <div key={idx}>{l}</div>
+                                      ))}
+                                    </div>
+                                  )}{" "}
                                 </>
                               );
                             })()
@@ -1016,8 +1082,10 @@ const Start = () => {
                                         <strong>{e.line1}</strong>
                                       </div>
                                       {e.line2 && (
-                                        <div className="text-gray-700">
-                                          {e.line2}
+                                        <div>
+                                          {e.line2.split("\n").map((l, idx) => (
+                                            <div key={idx}>{l}</div>
+                                          ))}
                                         </div>
                                       )}
                                     </>

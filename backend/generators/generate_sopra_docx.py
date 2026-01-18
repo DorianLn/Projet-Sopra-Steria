@@ -297,6 +297,77 @@ def format_contact(contact):
     
     return "\n".join(lines) if lines else "Contact non renseigné"
 
+def format_experiences_jlo(exps):
+
+    result = []
+
+    date_pattern = r"(Janvier|Février|Mars|Avril|Mai|Juin|Juillet|Août|Septembre|Octobre|Novembre|Décembre|\d{4})"
+
+    action_verbs = [
+        "Réponses", "Assurer", "Développer", "Procéduriser",
+        "Rédaction", "Accompagner", "Mettre en place",
+        "Suivi", "Participation", "Réalisation"
+    ]
+
+    for line in exps:
+        if not line:
+            continue
+
+        line = line.strip()
+
+        # Nouvelle expérience détectée
+        if re.search(date_pattern, line[:40]):
+
+            result.append("")
+
+            # On cherche si un verbe d’action est collé au titre
+            cut_index = None
+
+            for verb in action_verbs:
+                idx = line.find(" " + verb + " ")
+                if idx != -1:
+                    cut_index = idx
+                    break
+
+            # Si on a trouvé un verbe → on coupe
+            if cut_index:
+                title = line[:cut_index].strip()
+                first_detail = line[cut_index + 1:].strip()
+
+                result.append(title)
+                result.append("• " + first_detail)
+
+            else:
+                # Pas de verbe détecté → ligne normale
+                result.append(line)
+
+        else:
+            # Ligne normale → simple puce
+            result.append("• " + line)
+
+    return "\n".join(result).strip()
+
+
+def choose_experience_formatter(exps):
+
+    if not exps or not isinstance(exps, list):
+        return format_experiences(exps)
+
+    first = exps[0]
+
+    mois_fr = [
+        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+    ]
+
+    # Si on détecte un CV type JLA (présence d’un mois en toutes lettres)
+    if isinstance(first, str) and any(m in first for m in mois_fr):
+        return format_experiences_jlo(exps)
+
+    # Sinon on garde EXACTEMENT ton format actuel (Léo)
+    return format_experiences(exps)
+
+
 # ---------------------------
 #      DOCX HEADER
 # ---------------------------
@@ -366,7 +437,7 @@ def generate_sopra_docx(cv_data, output_path):
         "{{NOM_PRENOM}}": nom,
         "{{COMP_FONCT}}": bullets(comp_fonct, "Aucune compétence fonctionnelle"),
         "{{COMP_TECH}}": bullets(comp_tech, "Aucune compétence technique"),
-        "{{EXPERIENCES}}": format_experiences(cv_data.get("experiences", [])),
+        "{{EXPERIENCES}}": choose_experience_formatter(cv_data.get("experiences", [])),
         "{{FORMATIONS_CERTIFICATIONS}}": format_formations(cv_data.get("formations", [])),
         "{{LANGUES}}": bullets(cv_data.get("langues", []), "Non renseigné"),
     }
@@ -440,7 +511,7 @@ def generate_sopra_docx(cv_data, output_path):
                             p.text = p.text.replace(key, val if val else "Non renseigné")
                     set_paragraph_spacing(p, space_after=8, line_spacing=1.2)
 
-    # ✅ AJOUTER L'EN-TÊTE POUR LES PAGES 2+
+    #  AJOUTER L'EN-TÊTE POUR LES PAGES 2+
     add_header_to_document(doc, titre_profil, nom)
 
     doc.save(output_path)

@@ -255,6 +255,161 @@ def parse_contact(text: str) -> Dict[str, Any]:
 
     return result
 
+# ==========================================================
+# PARSING AVANCÉ DES SECTIONS
+# ==========================================================
+def split_by_real_sections(text: str) -> Dict[str, str]:
+
+    sections = {
+        "titre_profil": "",
+        "nom": "",
+        "competences_fonctionnelles": "",
+        "competences_techniques": "",
+        "experiences": "",
+        "formations": "",
+        "langues": ""
+    }
+
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+    current = None
+
+    for i, line in enumerate(lines):
+        lower = line.lower()
+
+        if lower.startswith("langue"):
+            current = "langues"
+
+            contenu = re.sub(r"langue\(s\)", "", lower).strip()
+            if contenu:
+                sections[current] += contenu + "\n"
+
+            continue
+
+        if "compétences fonctionnelles" in lower:
+            current = "competences_fonctionnelles"
+            continue
+
+        if "compétences techniques" in lower:
+            current = "competences_techniques"
+            continue
+
+        if lower == "expériences":
+            current = "experiences"
+            continue
+
+        if lower == "formation":
+            current = "formations"
+            continue
+
+        # Si aucune section encore définie → on suppose contact
+        if current is None:
+            if not sections["titre_profil"]:
+                sections["titre_profil"] = line
+            elif not sections["nom"]:
+                sections["nom"] = line
+            continue
+
+        sections[current] += line + "\n"
+
+    return sections
+
+
+
+
+# ==========================================================
+# PARSING STRUCTURÉ SIMPLE (VERSION ANTÉRIEURE)
+# ==========================================================
+def parse_structured_cv(text: str) -> Dict[str, Any]:
+
+    parts = split_by_real_sections(text)
+
+    # Découpage titre_profil / nom quand ils sont concaténés
+    titre = parts["titre_profil"]
+    nom = parts["nom"]
+
+    # Cas typique : "Business Analyst JLA"
+    match = re.match(r"(.+)\s+([A-Z]{2,5})$", titre)
+
+    if match:
+        titre_profil = match.group(1).strip()
+        nom = match.group(2).strip()
+    else:
+        titre_profil = titre
+
+    # Récupération brute
+    raw_experiences = [
+        l.strip()
+        for l in parts["experiences"].split("\n")
+        if l.strip()
+    ]
+
+    raw_formations = [
+        l.strip()
+        for l in parts["formations"].split("\n")
+        if l.strip()
+    ]
+
+    experiences = []
+    formations = raw_formations.copy()
+
+    for line in raw_experiences:
+
+        # Formation si commence par "Formation 20xx"
+        if re.match(r"^Formation\s+\d{4}", line, re.IGNORECASE):
+            formations.append(line)
+
+        # Certification ou diplôme explicite
+        elif re.search(r"(SAFe|ISTQB|Certification|POEI|Dipl[oô]me)", line, re.IGNORECASE):
+            formations.append(line)
+
+        # Ligne qui commence par une année → formation
+        elif re.match(r"^(19|20)\d{2}\s*[–-]", line):
+            formations.append(line)
+
+        else:
+            experiences.append(line)
+
+
+    data = {
+        "contact": {
+            "nom": nom,
+            "email": None,
+            "telephone": None,
+            "adresse": None,
+            "titre_profil": titre_profil
+        },
+
+        "competences": {
+            "fonctionnelles": [
+                l.strip()
+                for l in parts["competences_fonctionnelles"].split("\n")
+                if l.strip()
+            ],
+            "techniques": [
+                l.strip()
+                for l in parts["competences_techniques"].split("\n")
+                if l.strip()
+            ]
+        },
+
+        "experiences": experiences,
+
+        "formations": formations,
+
+        "langues": [
+            l.strip()
+            for l in parts["langues"].split("\n")
+            if l.strip()
+        ],
+
+        "loisirs": [],
+
+        "texte_brut": text
+    }
+
+    return data
+
 
 def parse_competences(text: str) -> List[str]:
 
@@ -393,6 +548,15 @@ def extract_cv_robust(file_path: str) -> Dict[str, Any]:
     raw = extract_text(file_path)
     clean = clean_text(raw)
 
+    # Détection d'un CV déjà bien structuré type JLA
+    if re.search(r"Compétences\s+fonctionnelles", clean, re.IGNORECASE) \
+    and re.search(r"Compétences\s+techniques", clean, re.IGNORECASE):
+
+        logger.info("CV structuré détecté (type JLA)")
+        return parse_structured_cv(clean)
+
+
+    # Sinon on garde TON ANCIEN PARSER
     sections = find_sections(clean)
     competences_raw = parse_competences(sections.get("competences", ""))
 

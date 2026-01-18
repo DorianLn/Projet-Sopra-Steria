@@ -311,12 +311,25 @@ const formatExperience = (text) => {
   };
 };
 
-const formatFormationSimple = (text) => {
-  if (!text.includes(":")) {
-    return { title: text, description: "" };
+const formatFormationSimple = (input) => {
+  // Si déjà un objet (cas JLA normalisé)
+  if (typeof input === "object" && input !== null) {
+    return {
+      title: input.title || "",
+      description: input.year ? `(${input.year})` : ""
+    };
   }
 
-  const [title, ...rest] = text.split(":");
+  // Cas Léo : string classique
+  if (typeof input !== "string") {
+    return { title: "", description: "" };
+  }
+
+  if (!input.includes(":")) {
+    return { title: input, description: "" };
+  }
+
+  const [title, ...rest] = input.split(":");
 
   return {
     title: title.trim(),
@@ -324,18 +337,120 @@ const formatFormationSimple = (text) => {
   };
 };
 
-const formatBoldBeforeColon = (text) => {
-  if (!text || !text.includes(":")) {
-    return { title: text, description: "" };
+
+const formatBoldBeforeColon = (input) => {
+  if (typeof input === "object" && input !== null) {
+    return {
+      title: input.title || "",
+      description: input.description || ""
+    };
   }
 
-  const [title, ...rest] = text.split(":");
+  if (typeof input !== "string") {
+    return { title: "", description: "" };
+  }
+
+  if (!input.includes(":")) {
+    return { title: input, description: "" };
+  }
+
+  const [title, ...rest] = input.split(":");
 
   return {
     title: title.trim(),
     description: rest.join(":").trim()
   };
 };
+
+
+const normalizeCvData = (data) => {
+  if (!data) return data;
+
+  // On crée une copie pour ne pas modifier l’original
+  let result = JSON.parse(JSON.stringify(data));
+
+  // ========== DETECTION TYPE JLA ==========
+  const isJla = Array.isArray(result.experiences) &&
+    result.experiences.some(line =>
+      typeof line === "string" && !/(19|20)\d{2}/.test(line)
+    );
+
+  if (!isJla) {
+    // CAS LEO → on ne touche à rien
+    return result;
+  }
+
+  // ========================
+  // CAS JLA : NORMALISATION
+  // ========================
+
+  // ---- 1) EXPERIENCES ----
+  let grouped = [];
+  let current = null;
+
+  result.experiences.forEach(line => {
+    const isTitle = /(19|20)\d{2}/.test(line);
+
+    if (isTitle) {
+      if (current) grouped.push(current);
+
+      current = {
+        title: line,
+        bullets: []
+      };
+    } else if (current) {
+      current.bullets.push(line);
+    }
+  });
+
+  if (current) grouped.push(current);
+
+  result.experiences = grouped;
+
+
+  // ---- 2) FORMATIONS ----
+  if (Array.isArray(result.formations)) {
+    result.formations = result.formations.map(f => {
+      if (typeof f !== "string") return f;
+
+      const match = f.match(/^((19|20)\d{2})\s*[-–]?\s*(.*)$/);
+
+      if (match) {
+        return {
+          title: match[3],
+          year: match[1]
+        };
+      }
+
+      return {
+        title: f,
+        year: ""
+      };
+    });
+  }
+
+
+  // ---- 3) COMPETENCES FONCTIONNELLES ----
+  if (Array.isArray(result.competences?.fonctionnelles)) {
+    result.competences.fonctionnelles =
+      result.competences.fonctionnelles.map(c => {
+        if (!c.includes(":")) {
+          return { title: c, description: "" };
+        }
+
+        const [title, ...rest] = c.split(":");
+
+        return {
+          title: title.trim(),
+          description: rest.join(":").trim()
+        };
+      });
+  }
+
+  return result;
+};
+
+
 
 const Start = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -429,7 +544,7 @@ const Start = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Erreur lors de l’analyse');
 
-      setResult(data);
+      setResult(normalizeCvData(data));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -683,7 +798,9 @@ const Start = () => {
                 {/* FORMATIONS */}
                 {result.formations?.length > 0 && (
                   <div className="result-card">
-                    <h3 className="result-title">🎓 Formations</h3>
+                    <h3 className="result-title">
+                      🎓 Formations - Certification{" "}
+                    </h3>
                     <ul className="result-list text-gray-700">
                       {result.formations.map((f, i) => {
                         const form = formatFormationSimple(f);
@@ -703,20 +820,35 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">💼 Expériences</h3>
                     <ul className="result-list text-gray-700">
-                      {result.experiences.map((e, i) => {
-                        const exp = formatExperience(e);
+                      {result.experiences.map((exp, i) => (
+                        <li key={i} className="mb-3">
+                          {typeof exp === "string" ? (
+                            // CAS LEO (inchangé)
+                            (() => {
+                              const e = formatExperience(exp);
+                              return (
+                                <>
+                                  <strong>{e.line1}</strong>
+                                  {e.line2 && <div>{e.line2}</div>}
+                                </>
+                              );
+                            })()
+                          ) : (
+                            // CAS JLA (déjà normalisé)
+                            <>
+                              <strong>{exp.title}</strong>
 
-                        return (
-                          <li key={i} className="mb-3">
-                            <div>
-                              <strong>{exp.line1}</strong>
-                            </div>
-                            {exp.line2 && (
-                              <div className="text-gray-700">{exp.line2}</div>
-                            )}
-                          </li>
-                        );
-                      })}
+                              {exp.bullets?.length > 0 && (
+                                <ul className="ml-4 mt-1 list-disc">
+                                  {exp.bullets.map((b, j) => (
+                                    <li key={j}>{b}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </>
+                          )}
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -791,18 +923,6 @@ const Start = () => {
                     <ul className="result-list text-gray-700">
                       {result.langues.map((l, i) => (
                         <li key={i}>{l}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* CERTIFICATIONS */}
-                {result.certifications?.length > 0 && (
-                  <div className="result-card">
-                    <h3 className="result-title">🏅 Certifications</h3>
-                    <ul className="result-list text-gray-700">
-                      {result.certifications.map((c, i) => (
-                        <li key={i}>{c}</li>
                       ))}
                     </ul>
                   </div>
@@ -884,22 +1004,43 @@ const Start = () => {
                       <>
                         <h4>Expériences</h4>
                         <ul>
-                          {result.experiences.map((e, i) => {
-                            const exp = formatExperience(e);
-
-                            return (
-                              <li key={i} className="mb-3">
-                                <div>
-                                  <strong>{exp.line1}</strong>
-                                </div>
-                                {exp.line2 && (
-                                  <div className="text-gray-700">
-                                    {exp.line2}
+                          {result.experiences.map((exp, i) => (
+                            <li key={i} className="mb-3">
+                              {typeof exp === "string" ? (
+                                // Cas Léo (inchangé)
+                                (() => {
+                                  const e = formatExperience(exp);
+                                  return (
+                                    <>
+                                      <div>
+                                        <strong>{e.line1}</strong>
+                                      </div>
+                                      {e.line2 && (
+                                        <div className="text-gray-700">
+                                          {e.line2}
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()
+                              ) : (
+                                // Cas JLA (déjà normalisé par normalizeCvData)
+                                <>
+                                  <div>
+                                    <strong>{exp.title}</strong>
                                   </div>
-                                )}
-                              </li>
-                            );
-                          })}
+
+                                  {exp.bullets?.length > 0 && (
+                                    <ul className="ml-4 mt-1 list-disc">
+                                      {exp.bullets.map((b, j) => (
+                                        <li key={j}>{b}</li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </>
+                              )}
+                            </li>
+                          ))}
                         </ul>
                       </>
                     )}

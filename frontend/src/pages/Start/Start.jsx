@@ -86,7 +86,10 @@ const computeProfessionalCvScore = (result) => {
   let score = 0;
 
   // 1) Richesse compétences
-  const comp = result.competences || [];
+  const comp = [
+    ...(result.competences?.techniques || []),
+    ...(result.competences?.fonctionnelles || [])
+  ];
   const hasBackend = comp.some(c => /python|java|spring|node|django|c\+\+/i.test(c));
   const hasFrontend = comp.some(c => /react|angular|vue|html|css|javascript/i.test(c));
   const hasCloud = comp.some(c => /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd/i.test(c));
@@ -184,36 +187,81 @@ const estimateExperienceLevel = (result) => {
 };
 
 const buildRadarData = (result) => {
-  const competences = (result?.competences || []).slice(0, 7); // max 7 axes
-  if (!competences.length) {
+  if (!result?.competences?.techniques) {
     return {
-      labels: ['Compétences'],
+      labels: ["Compétences"],
       datasets: [
         {
-          label: 'Compétences',
-          data: [1]
-        }
-      ]
+          label: "Compétences",
+          data: [1],
+        },
+      ],
     };
   }
 
-  // on met toutes les valeurs à 3 pour un rendu équilibré
-  const values = competences.map(() => 3);
+  // Étape 1 : extraire les vraies compétences unitaires
+  let extractedSkills = [];
+
+  result.competences.techniques.forEach((bloc) => {
+    // On sépare au niveau du ":" si présent
+    const parts = bloc.split(":");
+
+    if (parts.length > 1) {
+      // On prend la partie après le :
+      const skillsPart = parts[1];
+
+      // On sépare par virgules
+      const skills = skillsPart.split(",");
+
+      skills.forEach((s) => {
+        const clean = s.trim();
+
+        if (clean.length > 1) {
+          extractedSkills.push(clean);
+        }
+      });
+    } else {
+      // Si pas de ":", on garde la ligne brute
+      extractedSkills.push(bloc.trim());
+    }
+  });
+
+  // Supprimer doublons
+  extractedSkills = [...new Set(extractedSkills)];
+
+  // Limiter à 7 compétences max pour lisibilité radar
+  extractedSkills = extractedSkills.slice(0, 7);
+
+  if (!extractedSkills.length) {
+    return {
+      labels: ["Compétences"],
+      datasets: [
+        {
+          label: "Compétences",
+          data: [1],
+        },
+      ],
+    };
+  }
+
+  // Valeurs arbitraires pour affichage
+  const values = extractedSkills.map(() => 3);
 
   return {
-    labels: competences,
+    labels: extractedSkills,
     datasets: [
       {
-        label: 'Compétences clés',
+        label: "Compétences clés",
         data: values,
-        backgroundColor: 'rgba(255, 88, 120, 0.2)',
-        borderColor: 'rgba(214, 46, 92, 0.9)',
+        backgroundColor: "rgba(255, 88, 120, 0.2)",
+        borderColor: "rgba(214, 46, 92, 0.9)",
         borderWidth: 2,
-        pointRadius: 3
-      }
-    ]
+        pointRadius: 3,
+      },
+    ],
   };
 };
+
 
 const downloadJson = (result) => {
   const blob = new Blob([JSON.stringify(result, null, 2)], {
@@ -232,6 +280,75 @@ const downloadJson = (result) => {
 const exportPdf = () => {
   // version simple : impression de la page (l’utilisateur peut choisir "Enregistrer en PDF")
   window.print();
+};
+
+
+const formatExperience = (text) => {
+  if (!text) return { line1: text, line2: "" };
+
+  // Extraire la date
+  const dateMatch = text.match(/(19|20)\d{2}\s?[–-]\s?(19|20)\d{2}|(19|20)\d{2}/);
+
+  if (!dateMatch) {
+    return { line1: text, line2: "" };
+  }
+
+  const date = dateMatch[0];
+
+  // Retirer la date du texte
+  let rest = text.replace(date, "").trim();
+
+  // Supprimer éventuel préfixe S1 S2 S3...
+  rest = rest.replace(/^S\d\s*/, "").trim();
+
+  // On coupe la description à partir de mots clés typiques
+  const keywords = ["Programme", "Stage", "Projet", "Formation"];
+
+  let index = -1;
+
+  for (let key of keywords) {
+    index = rest.indexOf(key);
+    if (index !== -1) break;
+  }
+
+  let title = rest;
+  let description = "";
+
+  if (index !== -1) {
+    title = rest.substring(0, index).trim();
+    description = rest.substring(index).trim();
+  }
+
+  return {
+    line1: `${date}  ${title}`,
+    line2: description
+  };
+};
+
+const formatFormationSimple = (text) => {
+  if (!text.includes(":")) {
+    return { title: text, description: "" };
+  }
+
+  const [title, ...rest] = text.split(":");
+
+  return {
+    title: title.trim(),
+    description: rest.join(":").trim()
+  };
+};
+
+const formatBoldBeforeColon = (text) => {
+  if (!text || !text.includes(":")) {
+    return { title: text, description: "" };
+  }
+
+  const [title, ...rest] = text.split(":");
+
+  return {
+    title: title.trim(),
+    description: rest.join(":").trim()
+  };
 };
 
 const Start = () => {
@@ -349,13 +466,14 @@ const Start = () => {
             Analysez votre <span className="gradient-text">CV</span>
           </h1>
           <p className="hero-subtitle">
-            Téléversez votre CV (.docx ou .pdf) pour une extraction automatique des informations clés.
+            Téléversez votre CV (.docx ou .pdf) pour une extraction automatique
+            des informations clés.
           </p>
 
           {/* Zone de téléchargement */}
           <div className="mt-10 relative">
             <div
-              className={`upload-zone ${dragActive ? 'drag-active' : ''}`}
+              className={`upload-zone ${dragActive ? "drag-active" : ""}`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
@@ -373,15 +491,23 @@ const Start = () => {
                   <div className="space-y-2">
                     <div className="file-selected">
                       <FileText className="file-selected-icon" />
-                      <span className="file-selected-name">{selectedFile.name}</span>
+                      <span className="file-selected-name">
+                        {selectedFile.name}
+                      </span>
                     </div>
                     <p className="file-ready">Fichier prêt à être analysé</p>
                   </div>
                 ) : (
                   <>
-                    <h3 className="upload-title">Glissez-déposez votre CV ici</h3>
-                    <p className="upload-description">ou cliquez pour sélectionner un fichier</p>
-                    <p className="upload-format">Formats acceptés : .docx, .pdf</p>
+                    <h3 className="upload-title">
+                      Glissez-déposez votre CV ici
+                    </h3>
+                    <p className="upload-description">
+                      ou cliquez pour sélectionner un fichier
+                    </p>
+                    <p className="upload-format">
+                      Formats acceptés : .docx, .pdf
+                    </p>
                   </>
                 )}
               </div>
@@ -395,7 +521,7 @@ const Start = () => {
                   disabled={loading}
                   className="submit-button"
                 >
-                  {loading ? 'Analyse en cours...' : 'Analyser le CV'}
+                  {loading ? "Analyse en cours..." : "Analyser le CV"}
                   <ArrowRight />
                 </button>
               </div>
@@ -412,45 +538,44 @@ const Start = () => {
           {/* Résultat affiché */}
           {result && (
             <div className="result-section text-left mt-10">
-
               {/* Barre d’outils / résumé */}
               <div className="result-toolbar">
-
                 {/* Score extraction */}
                 <div className="score-block">
                   <span className="score-label">Fiabilité extraction</span>
                   <div className="score-value">
                     <BarChart3 size={18} />
                     <span>{extractionScore}%</span>
-                    </div>
+                  </div>
                   <div className="score-bar">
                     <div
                       className="score-bar-fill"
                       style={{ width: `${extractionScore}%` }}
-                      />
-                  </div>
-                  
-                  {/* Score Pro */}
-                  <div className="score-block">
-                  <span className="score-label">Score CV Pro</span>
-                  <div className="score-value">
-                    <BarChart3 size={18} />
-                    <span>{professionalScore}%</span>
-                  </div>
-                  <div className="score-bar">
-                    <div
-                      className="score-bar-fill"
-                      style={{ width: `${professionalScore}%` }}
                     />
                   </div>
-                </div>
+
+                  {/* Score Pro */}
+                  <div className="score-block">
+                    <span className="score-label">Score CV Pro</span>
+                    <div className="score-value">
+                      <BarChart3 size={18} />
+                      <span>{professionalScore}%</span>
+                    </div>
+                    <div className="score-bar">
+                      <div
+                        className="score-bar-fill"
+                        style={{ width: `${professionalScore}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* XP */}
                 <div className="xp-block">
                   <span className="xp-label">Niveau d’expérience</span>
                   <span className="xp-pill">
-                    {xpInfo.label} {xpInfo.years > 0 && `(${xpInfo.years} ans estimés)`}
+                    {xpInfo.label}{" "}
+                    {xpInfo.years > 0 && `(${xpInfo.years} ans estimés)`}
                   </span>
                 </div>
 
@@ -458,7 +583,7 @@ const Start = () => {
                   <button
                     className="export-btn"
                     onClick={() => downloadJson(result)}
-                    >
+                  >
                     <Download size={16} />
                     JSON
                   </button>
@@ -469,7 +594,10 @@ const Start = () => {
                         alert("Aucun PDF généré par le backend.");
                         return;
                       }
-                      window.open(`http://localhost:5000/api/cv/pdf/${result.pdf_filename}`, "_blank");
+                      window.open(
+                        `http://localhost:5000/api/cv/pdf/${result.pdf_filename}`,
+                        "_blank"
+                      );
                     }}
                   >
                     <FileDown size={16} />
@@ -484,7 +612,10 @@ const Start = () => {
                         return;
                       }
 
-                      const baseName = result.json_filename.replace(".json", "");
+                      const baseName = result.json_filename.replace(
+                        ".json",
+                        ""
+                      );
 
                       window.open(
                         `http://localhost:5000/api/cv/docx/${baseName}`,
@@ -518,21 +649,35 @@ const Start = () => {
                     <FileDown size={16} />
                     Convertir en PDF
                   </button>
-
-                                  </div>
+                </div>
               </div>
 
               {/* Grille principale */}
               <div className="result-wrapper">
-
                 {/* CONTACT */}
                 <div className="result-card">
                   <h3 className="result-title">📞 Contact</h3>
                   <ul className="result-list text-gray-700">
-                    {result.contact.nom && <li><strong>Nom :</strong> {result.contact.nom}</li>}
-                    {result.contact.email && <li><strong>Email :</strong> {result.contact.email}</li>}
-                    {result.contact.telephone && <li><strong>Téléphone :</strong> {result.contact.telephone}</li>}
-                    {result.contact.adresse && <li><strong>Adresse :</strong> {result.contact.adresse}</li>}
+                    {result.contact.nom && (
+                      <li>
+                        <strong>Nom :</strong> {result.contact.nom}
+                      </li>
+                    )}
+                    {result.contact.email && (
+                      <li>
+                        <strong>Email :</strong> {result.contact.email}
+                      </li>
+                    )}
+                    {result.contact.telephone && (
+                      <li>
+                        <strong>Téléphone :</strong> {result.contact.telephone}
+                      </li>
+                    )}
+                    {result.contact.adresse && (
+                      <li>
+                        <strong>Adresse :</strong> {result.contact.adresse}
+                      </li>
+                    )}
                   </ul>
                 </div>
 
@@ -541,9 +686,15 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">🎓 Formations</h3>
                     <ul className="result-list text-gray-700">
-                      {result.formations.map((f, i) => (
-                        <li key={i}><strong>{f.etablissement}</strong> — {f.dates}</li>
-                      ))}
+                      {result.formations.map((f, i) => {
+                        const form = formatFormationSimple(f);
+
+                        return (
+                          <li key={i} className="mb-2">
+                            <strong>{form.title}</strong> : {form.description}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}
@@ -553,39 +704,64 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">💼 Expériences</h3>
                     <ul className="result-list text-gray-700">
-                      {result.experiences.map((e, i) => (
-                        <li key={i}>
-                          <strong>{e.entreprise}</strong> — {e.poste || '—'} ({e.dates})
-                        </li>
-                      ))}
+                      {result.experiences.map((e, i) => {
+                        const exp = formatExperience(e);
+
+                        return (
+                          <li key={i} className="mb-3">
+                            <div>
+                              <strong>{exp.line1}</strong>
+                            </div>
+                            {exp.line2 && (
+                              <div className="text-gray-700">{exp.line2}</div>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}
 
-                {/* PROJETS */}
-                {result.projets?.length > 0 && (
+                {/* COMPETENCES TECHNIQUES */}
+                {result.competences?.techniques?.length > 0 && (
                   <div className="result-card">
-                    <h3 className="result-title">🚀 Projets</h3>
-                    <ul className="result-list text-gray-700">
-                      {result.projets.map((p, i) => <li key={i}>{p}</li>)}
+                    <h3 className="result-title">Compétences Techniques</h3>
+                    <ul>
+                      {result.competences.techniques.map((c, i) => {
+                        const item = formatBoldBeforeColon(c);
+
+                        return (
+                          <li key={i}>
+                            <strong>{item.title}</strong>
+                            {item.description && ` : ${item.description}`}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}
-                
-                {/* COMPETENCES (tags + radar) */}
-                {result.competences?.length > 0 && (
+
+                {/* COMPETENCES FONCTIONNELLES */}
+                {result.competences?.fonctionnelles?.length > 0 && (
                   <div className="result-card">
-                    <h3 className="result-title">🧠 Compétences</h3>
-                    <div className="skills-tags">
-                      {result.competences.map((c, i) => (
-                        <span key={i} className="skill-tag">{c}</span>
-                      ))}
-                    </div>
+                    <h3 className="result-title">Compétences Fonctionnelles</h3>
+                    <ul>
+                    {result.competences.fonctionnelles.map((c, i) => {
+                        const item = formatBoldBeforeColon(c);
+
+                        return (
+                          <li key={i}>
+                            <strong>{item.title}</strong>
+                            {item.description && ` : ${item.description}`}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 )}
 
                 {/* RADAR COMPETENCES */}
-                {result.competences?.length > 0 && (
+                {result.competences?.techniques?.length > 0 && (
                   <div className="result-card radar-card">
                     <h3 className="result-title">
                       <BarChart3 size={18} /> Radar des compétences
@@ -598,12 +774,12 @@ const Start = () => {
                           r: {
                             suggestedMin: 0,
                             suggestedMax: 5,
-                            ticks: { stepSize: 1 }
-                          }
+                            ticks: { stepSize: 1 },
+                          },
                         },
                         plugins: {
-                          legend: { display: false }
-                        }
+                          legend: { display: false },
+                        },
                       }}
                     />
                   </div>
@@ -614,7 +790,9 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">🌍 Langues</h3>
                     <ul className="result-list text-gray-700">
-                      {result.langues.map((l, i) => <li key={i}>{l}</li>)}
+                      {result.langues.map((l, i) => (
+                        <li key={i}>{l}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -624,35 +802,9 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">🏅 Certifications</h3>
                     <ul className="result-list text-gray-700">
-                      {result.certifications.map((c, i) => <li key={i}>{c}</li>)}
-                    </ul>
-                  </div>
-                )}
-
-                {/* LOISIRS */}
-                {result.loisirs?.length > 0 && (
-                  <div className="result-card">
-                    <h3 className="result-title">🎯 Loisirs</h3>
-                    <ul className="result-list text-gray-700">
-                      {result.loisirs.map((l, i) => <li key={i}>{l}</li>)}
-                    </ul>
-                  </div>
-                )}
-
-                {/* DISPONIBILITE */}
-                {result.disponibilite && (
-                  <div className="result-card">
-                    <h3 className="result-title">📅 Disponibilité</h3>
-                    <p className="text-gray-700">{result.disponibilite}</p>
-                  </div>
-                )}
-
-                {/* DATES BRUTES */}
-                {result.dates?.length > 0 && (
-                  <div className="result-card">
-                    <h3 className="result-title">🗂 Dates détectées</h3>
-                    <ul className="result-list text-gray-700">
-                      {result.dates.map((d, i) => <li key={i}>{d}</li>)}
+                      {result.certifications.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -665,62 +817,104 @@ const Start = () => {
                   <div className="cv-preview-body">
                     <h4>{result.contact.nom}</h4>
                     <p className="cv-preview-contact">
-                      {result.contact.email} ··· {result.contact.telephone} ··· {result.contact.adresse}
+                      {result.contact.email} ··· {result.contact.telephone} ···{" "}
+                      {result.contact.adresse}
                     </p>
+
+                    {/* Compétences Fonctionnelles */}
+                    {result.competences?.fonctionnelles?.length > 0 && (
+                      <>
+                        <h4>Compétences Fonctionnelles</h4>
+                        <ul>
+                          {result.competences.fonctionnelles.map((c, i) => {
+                                const item = formatBoldBeforeColon(c);
+
+                                return (
+                                  <li key={i}>
+                            <span className="underline-title">
+                              {item.title}
+                            </span>
+                            {item.description &&
+                                      ` : ${item.description}`}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                      </>
+                        )}
+
+                    {/* Compétences Techniques */}
+                    {result.competences?.techniques?.length > 0 && (
+                      <>
+                        <h4>Compétences Techniques</h4>
+                        <ul>
+                          {result.competences.techniques.map((c, i) => {
+                                const item = formatBoldBeforeColon(c);
+
+                                return (
+                                  <li key={i}>
+                            <span className="underline-title">
+                              {item.title}
+                            </span>
+                            {item.description &&
+                                      ` : ${item.description}`}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                      </>
+                  )}
 
                     {result.formations?.length > 0 && (
                       <>
-                        <h5>Formations</h5>
+                        <h4>Formations - Certification</h4>
                         <ul>
-                          {result.formations.map((f, i) => (
-                            <li key={i}>
-                              <strong>{f.etablissement}</strong> — {f.dates}
-                            </li>
-                          ))}
+                          {result.formations.map((f, i) => {
+                            const form = formatFormationSimple(f);
+
+                            return (
+                              <li key={i} className="mb-2">
+                                <strong>{form.title}</strong> :{" "}
+                                {form.description}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </>
                     )}
 
                     {result.experiences?.length > 0 && (
                       <>
-                        <h5>Expériences</h5>
+                        <h4>Expériences</h4>
                         <ul>
-                          {result.experiences.map((e, i) => (
-                            <li key={i}>
-                              <strong>{e.entreprise}</strong> — {e.poste || '—'} ({e.dates})
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
+                          {result.experiences.map((e, i) => {
+                            const exp = formatExperience(e);
 
-                    {result.projets?.length > 0 && (
-                      <>
-                        <h5>Projets</h5>
-                        <ul>
-                          {result.projets.map((p, i) => <li key={i}>{p}</li>)}
+                            return (
+                              <li key={i} className="mb-3">
+                                <div>
+                                  <strong>{exp.line1}</strong>
+                                </div>
+                                {exp.line2 && (
+                                  <div className="text-gray-700">
+                                    {exp.line2}
+                                  </div>
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
-                      </>
-                    )}
-
-                    {result.competences?.length > 0 && (
-                      <>
-                        <h5>Compétences clés</h5>
-                        <p>{result.competences.join(' · ')}</p>
                       </>
                     )}
 
                     {result.langues?.length > 0 && (
                       <>
-                        <h5>Langues</h5>
-                        <p>{result.langues.join(' · ')}</p>
-                      </>
-                    )}
-
-                    {result.disponibilite && (
-                      <>
-                        <h5>Disponibilité</h5>
-                        <p>{result.disponibilite}</p>
+                        <h4>Langues</h4>
+                        <ul>
+                          {result.langues.map((langue, index) => (
+                            <li key={index}>{langue}</li>
+                          ))}
+                        </ul>
                       </>
                     )}
                   </div>
@@ -732,19 +926,29 @@ const Start = () => {
           {/* Étapes visuelles */}
           <div className="process-steps mt-16">
             <div className="process-step">
-              <div className="step-icon"><Upload /></div>
+              <div className="step-icon">
+                <Upload />
+              </div>
               <h3 className="step-title">1. Téléversez</h3>
-              <p className="step-description">Choisissez votre CV .docx ou .pdf</p>
+              <p className="step-description">
+                Choisissez votre CV .docx ou .pdf
+              </p>
             </div>
 
             <div className="process-step">
-              <div className="step-icon"><FileText /></div>
+              <div className="step-icon">
+                <FileText />
+              </div>
               <h3 className="step-title">2. Analyse</h3>
-              <p className="step-description">Extraction automatique des données</p>
+              <p className="step-description">
+                Extraction automatique des données
+              </p>
             </div>
 
             <div className="process-step">
-              <div className="step-icon"><ArrowRight /></div>
+              <div className="step-icon">
+                <ArrowRight />
+              </div>
               <h3 className="step-title">3. Résultat</h3>
               <p className="step-description">Dashboard d’analyse structuré</p>
             </div>

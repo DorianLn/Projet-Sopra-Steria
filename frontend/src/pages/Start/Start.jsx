@@ -519,42 +519,75 @@ const Start = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [modifiedDocx, setModifiedDocx] = useState(null);
+  const [generatedDocxName, setGeneratedDocxName] = useState(null);
+
 
   // --- Conversion DOCX modifié en PDF ---
   const convertDocxToPdf = async () => {
-    if (!modifiedDocx) {
-      alert("Veuillez sélectionner un fichier .docx modifié.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", modifiedDocx);
-
     try {
+      // CAS 1 : DOCX modifié importé
+      if (modifiedDocx) {
+        const formData = new FormData();
+        formData.append("file", modifiedDocx);
+  
+        const response = await fetch("http://localhost:5000/api/cv/convert", {
+          method: "POST",
+          body: formData,
+        });
+  
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || "Erreur lors de la conversion");
+        }
+  
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+  
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "CV_Modifié.pdf";
+        a.click();
+  
+        URL.revokeObjectURL(url);
+        return;
+      }
+  
+      // CAS 2 : conversion directe du DOCX généré
+      if (!generatedDocxName) {
+        alert("Veuillez d'abord télécharger le DOCX avant de le convertir.");
+        return;
+      }
+  
       const response = await fetch("http://localhost:5000/api/cv/convert", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filename: generatedDocxName,
+        }),
       });
-
+  
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || "Erreur lors de la conversion");
       }
-
-      // Récupérer le PDF retourné
+  
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-
+  
       const a = document.createElement("a");
       a.href = url;
-      a.download = "CV_Final.pdf";
+      a.download = `${generatedDocxName}.pdf`;
       a.click();
-
+  
       URL.revokeObjectURL(url);
+  
     } catch (e) {
       alert("Erreur : " + e.message);
     }
   };
+
 
   // --- Gestion du drag & drop ---
   const handleDrag = (e) => {
@@ -764,23 +797,6 @@ const Start = () => {
                   <button
                     className="export-btn"
                     onClick={() => {
-                      if (!result?.pdf_filename) {
-                        alert("Aucun PDF généré par le backend.");
-                        return;
-                      }
-                      window.open(
-                        `http://localhost:5000/api/cv/pdf/${result.pdf_filename}`,
-                        "_blank"
-                      );
-                    }}
-                  >
-                    <FileDown size={16} />
-                    PDF
-                  </button>
-
-                  <button
-                    className="export-btn"
-                    onClick={() => {
                       if (!result?.json_filename) {
                         alert("Aucun JSON trouvé pour générer le Word.");
                         return;
@@ -790,6 +806,9 @@ const Start = () => {
                         ".json",
                         ""
                       );
+
+                      // Mémoriser le nom du DOCX généré
+                      setGeneratedDocxName(baseName);
 
                       window.open(
                         `http://localhost:5000/api/cv/docx/${baseName}`,
@@ -818,7 +837,7 @@ const Start = () => {
                   <button
                     className="export-btn"
                     onClick={convertDocxToPdf}
-                    disabled={!modifiedDocx}
+                    disabled={false}
                   >
                     <FileDown size={16} />
                     Convertir en PDF

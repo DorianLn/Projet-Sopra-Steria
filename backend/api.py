@@ -4,7 +4,6 @@ import os
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-from generators.pdf_sopra_profile import generate_sopra_profile_pdf
 import json
 import logging
 from datetime import datetime
@@ -78,33 +77,7 @@ def analyze_cv():
         if error:
             return jsonify({'success': False, 'error': error}), 500
 
-        # ----------------------
-        # Génération automatique du PDF dynamique
-        # ----------------------
-
-        # Récupération du nom du candidat
-        nom_candidat = (
-            results.get("contact", {}).get("nom") or
-            results.get("Nom") or
-            results.get("nom") or
-            "Inconnu"
-        )
-
-        # Nettoyage pour créer un nom de fichier valide
-        nom_candidat = nom_candidat.replace(" ", "_").replace("/", "_")
-
-        pdf_filename = f"CV_{nom_candidat}.pdf"
-        pdf_path = Path("data/output") / pdf_filename
-
-
-        os.makedirs("data/output", exist_ok=True)
-
-        # Génération du PDF Sopra Steria
-        generate_sopra_profile_pdf(results, str(pdf_path))
-
-        # Ajouter le nom du PDF dans la réponse
-        results["pdf_filename"] = pdf_filename
-
+        
         return jsonify(results)
 
     except Exception as e:
@@ -163,82 +136,67 @@ def convert_docx_to_pdf_route():
     from generators.docx_to_pdf import convert_docx_to_pdf
 
     try:
-        if 'file' not in request.files:
-            return jsonify({"error": "Aucun fichier envoyé"}), 400
+        base_input = Path("data/input")
+        base_output = Path("data/output")
 
-        file = request.files['file']
-        filename = secure_filename(file.filename)
+        os.makedirs(base_input, exist_ok=True)
+        os.makedirs(base_output, exist_ok=True)
 
-        if not filename.endswith('.docx'):
-            return jsonify({"error": "Veuillez envoyer un fichier .docx"}), 400
+        # ==============================
+        # MODE 1 : Upload d’un DOCX
+        # ==============================
+        if 'file' in request.files:
+            file = request.files['file']
+            filename = secure_filename(file.filename)
 
-        temp_docx = Path("data/input") / filename
-        file.save(temp_docx)
+            if not filename.endswith('.docx'):
+                return jsonify({"error": "Veuillez envoyer un fichier .docx"}), 400
 
-        output_pdf = Path("data/output") / f"{temp_docx.stem}_modified.pdf"
+            temp_docx = base_input / filename
+            file.save(temp_docx)
 
-        convert_docx_to_pdf(str(temp_docx), str(output_pdf))
+            output_pdf = base_output / f"{temp_docx.stem}.pdf"
 
-        return send_file(
-            str(output_pdf),
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name=f"{temp_docx.stem}_modified.pdf"
-        )
+            convert_docx_to_pdf(str(temp_docx), str(output_pdf))
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+            return send_file(
+                str(output_pdf),
+                mimetype="application/pdf",
+                as_attachment=True,
+                download_name=f"{temp_docx.stem}.pdf"
+            )
 
-# -------------------------------------------------
-#                ROUTE DOWNLOAD PDF
-# -------------------------------------------------
-@app.route('/api/cv/pdf/<filename>', methods=['GET'])
-def download_pdf(filename):
-    from generators.generate_sopra_docx import generate_sopra_docx
-    from generators.docx_to_pdf import convert_docx_to_pdf
+        # ==============================
+        # MODE 2 : Conversion directe
+        # ==============================
+        data = request.get_json(silent=True)
 
-    base = Path("data/output")
+        if data and "filename" in data:
+            filename = data["filename"]
 
-    # -----------------------------------------------------
-    #  MODE A — PDF déjà généré dans /analyze
-    # -----------------------------------------------------
-    if filename.endswith(".pdf"):
-        pdf_path = base / filename
-        if pdf_path.exists():
+            docx_path = base_output / f"{filename}.docx"
+            pdf_path = base_output / f"{filename}.pdf"
+
+            if not docx_path.exists():
+                return jsonify({
+                    "error": "DOCX introuvable. Générez d'abord le DOCX."
+                }), 404
+
+            convert_docx_to_pdf(str(docx_path), str(pdf_path))
+
             return send_file(
                 str(pdf_path),
                 mimetype="application/pdf",
                 as_attachment=True,
-                download_name=filename
+                download_name=f"{filename}.pdf"
             )
-        return jsonify({"error": "PDF déjà généré introuvable"}), 404
 
-    # -----------------------------------------------------
-    #  MODE B — Recréation du PDF à partir du JSON
-    # -----------------------------------------------------
-    json_path = base / f"{filename}.json"
-    docx_path = base / f"{filename}.docx"
-    pdf_path  = base / f"{filename}.pdf"
+        return jsonify({
+            "error": "Envoyez soit un fichier DOCX, soit un nom de fichier"
+        }), 400
 
-    if not json_path.exists():
-        return jsonify({"error": "JSON introuvable"}), 404
-
-    # Charger JSON
-    cv_data = json.loads(json_path.read_text(encoding="utf-8"))
-
-    # Générer DOCX
-    generate_sopra_docx(cv_data, str(docx_path))
-
-    # Convertir en PDF
-    convert_docx_to_pdf(str(docx_path), str(pdf_path))
-
-    # Télécharger PDF final
-    return send_file(
-        str(pdf_path),
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name=f"{filename}.pdf"
-    )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # -------------------------------------------------
 #      ROUTE NORMALISATION (Ancienne → Nouvelle)

@@ -33,7 +33,7 @@ def allowed_file(filename):
 
 def process_cv(file_path):
     try:
-        # 🔥 NOUVEAU PIPELINE ULTRA SIMPLE
+        #  NOUVEAU PIPELINE ULTRA SIMPLE
         resultats = extract_cv_robust(str(file_path))
 
         # Sauvegarde JSON
@@ -110,6 +110,24 @@ def analyze_cv():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# -------------------------------------------------
+#           ROUTE DOWNLOAD JSON
+# -------------------------------------------------
+@app.route('/api/cv/json/<filename>', methods=['GET'])
+def download_json(filename):
+
+    base = Path("data/output")
+    json_path = base / f"{filename}.json"
+
+    if not json_path.exists():
+        return jsonify({"error": "JSON introuvable"}), 404
+
+    return send_file(
+        str(json_path),
+        mimetype="application/json",
+        as_attachment=True,
+        download_name=f"{filename}.json"
+    )
 # -------------------------------------------------
 #           ROUTE DOWNLOAD DOCX       
 # -------------------------------------------------

@@ -263,20 +263,6 @@ const buildRadarData = (result) => {
 };
 
 
-const downloadJson = (result) => {
-  const blob = new Blob([JSON.stringify(result, null, 2)], {
-    type: 'application/json'
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'cv_analyse.json';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-};
-
 const exportPdf = () => {
   // version simple : impression de la page (l’utilisateur peut choisir "Enregistrer en PDF")
   window.print();
@@ -582,7 +568,20 @@ const Start = () => {
                 <div className="export-buttons">
                   <button
                     className="export-btn"
-                    onClick={() => downloadJson(result)}
+                    onClick={() => {
+                      if (!result?.json_filename) {
+                        alert("Aucun JSON disponible.");
+                        return;
+                      }
+
+                      window.open(
+                        `http://localhost:5000/api/cv/json/${result.json_filename.replace(
+                          ".json",
+                          ""
+                        )}`,
+                        "_blank"
+                      );
+                    }}
                   >
                     <Download size={16} />
                     JSON
@@ -746,7 +745,7 @@ const Start = () => {
                   <div className="result-card">
                     <h3 className="result-title">Compétences Fonctionnelles</h3>
                     <ul>
-                    {result.competences.fonctionnelles.map((c, i) => {
+                      {result.competences.fonctionnelles.map((c, i) => {
                         const item = formatBoldBeforeColon(c);
 
                         return (
@@ -827,21 +826,20 @@ const Start = () => {
                         <h4>Compétences Fonctionnelles</h4>
                         <ul>
                           {result.competences.fonctionnelles.map((c, i) => {
-                                const item = formatBoldBeforeColon(c);
+                            const item = formatBoldBeforeColon(c);
 
-                                return (
-                                  <li key={i}>
-                            <span className="underline-title">
-                              {item.title}
-                            </span>
-                            {item.description &&
-                                      ` : ${item.description}`}
-                                  </li>
-                                );
-                              })}
-                            </ul>
+                            return (
+                              <li key={i}>
+                                <span className="underline-title">
+                                  {item.title}
+                                </span>
+                                {item.description && ` : ${item.description}`}
+                              </li>
+                            );
+                          })}
+                        </ul>
                       </>
-                        )}
+                    )}
 
                     {/* Compétences Techniques */}
                     {result.competences?.techniques?.length > 0 && (
@@ -849,21 +847,20 @@ const Start = () => {
                         <h4>Compétences Techniques</h4>
                         <ul>
                           {result.competences.techniques.map((c, i) => {
-                                const item = formatBoldBeforeColon(c);
+                            const item = formatBoldBeforeColon(c);
 
-                                return (
-                                  <li key={i}>
-                            <span className="underline-title">
-                              {item.title}
-                            </span>
-                            {item.description &&
-                                      ` : ${item.description}`}
-                                  </li>
-                                );
-                              })}
-                            </ul>
+                            return (
+                              <li key={i}>
+                                <span className="underline-title">
+                                  {item.title}
+                                </span>
+                                {item.description && ` : ${item.description}`}
+                              </li>
+                            );
+                          })}
+                        </ul>
                       </>
-                  )}
+                    )}
 
                     {result.formations?.length > 0 && (
                       <>

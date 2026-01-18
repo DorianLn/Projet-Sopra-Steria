@@ -7,6 +7,7 @@ from docx.shared import Pt, Inches, RGBColor
 from typing import Dict, List, Optional, Any
 import re
 
+
 # ---------------------------
 #      HELPERS VISUELS
 # ---------------------------
@@ -28,9 +29,10 @@ def add_horizontal_line(paragraph, color="7030A0"):
 # ---------------------------
 #      DOCX FORMATTING      
 # ---------------------------
-from docx.shared import Pt
+from docx.shared import Pt, Cm, RGBColor
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
 
 def set_paragraph_spacing(paragraph, space_after=6, line_spacing=1.15):
     p = paragraph._p
@@ -112,16 +114,74 @@ def format_experiences(exps):
     if not isinstance(exps, list) or not exps:
         return "• Aucune expérience renseignée"
 
-    lines = []
+    result = []
 
     for exp in exps:
-        if isinstance(exp, str) and exp.strip():
-            lines.append(f"• {exp.strip()}")
+        exp = exp.strip()
+        if not exp:
+            continue
 
-    if not lines:
-        return "• Aucune expérience renseignée"
+        # ----- CAS SPÉCIAL : expériences contenant des projets -----
+        if "Projets" in exp:
+            parts = exp.split("Projets", 1)
 
-    return "\n".join(lines)
+            header = parts[0].strip().rstrip(" :")
+            details = parts[1].strip()
+
+            # Titre principal
+            result.append(f"{header} : Projets")
+            result.append("")
+
+            # Nettoyage du mot "Projets" résiduel
+            details = details.replace("Projets", "").strip()
+
+            # Découper chaque projet à partir de "Projet individuel"
+            projets = re.split(r"(Projet individuel)", details)
+
+            for i in range(1, len(projets), 2):
+                projet = projets[i] + projets[i + 1]
+
+                # Nettoyage COMPLET des caractères invisibles
+                projet = projet.replace("\n", " ")
+                projet = projet.replace("\t", " ")
+                projet = projet.replace("\r", " ")
+                projet = projet.replace("\xa0", " ")   # espace insécable
+
+                # Supprimer tous espaces multiples
+                projet = re.sub(r"[ ]{2,}", " ", projet)
+
+                # Nettoyage final
+                projet = projet.strip()
+
+                result.append("• " + projet)
+
+            result.append("")
+            continue
+
+        # ----- CAS NORMAL (autres expériences) -----
+        split_keywords = ["Programme", "Stage"]
+
+        split_index = -1
+        for kw in split_keywords:
+            idx = exp.find(kw)
+            if idx != -1:
+                split_index = idx
+                break
+
+        if split_index != -1:
+            header = exp[:split_index].strip()
+            details = exp[split_index:].strip()
+
+            result.append(header)
+            result.append(f"• {details}")
+        else:
+            result.append(f"• {exp}")
+
+        result.append("")
+
+    return "\n".join(result).strip()
+
+
 
 
 def format_formations(forms):
@@ -249,6 +309,9 @@ def add_header_to_document(doc, titre_profil, nom):
         # Activer un header différent pour la première page
         section.different_first_page_header_footer = True
         
+        # Marges pour l'en-tête
+        section.top_margin = Cm(2.5)
+        section.header_distance = Cm(1.5)
         # En-tête par défaut (pages 2+)
         header = section.header
         
@@ -256,7 +319,7 @@ def add_header_to_document(doc, titre_profil, nom):
         for paragraph in header.paragraphs:
             paragraph.clear()
         
-        # ✅ Ajouter le titre profil (sans saut de ligne avant)
+        # Ajouter le titre profil (sans saut de ligne avant)
         p_titre = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
         run_titre = p_titre.add_run(titre_profil)
         run_titre.bold = True
@@ -310,28 +373,62 @@ def generate_sopra_docx(cv_data, output_path):
 
     # --------- REMPLACEMENT CONTENU ---------
     for p in doc.paragraphs:
-        original_text = p.text
-        
         for key, val in mapping.items():
             if key in p.text:
-                p.text = p.text.replace(key, val if val else "Non renseigné")
-                
-                if key == "{{TITRE_PROFIL}}":
-                    for run in p.runs:
-                        run.bold = True
-                        run.font.size = Pt(20)
-                        run.font.color.rgb = RGBColor(77, 27, 130)
-                    set_paragraph_spacing(p, space_after=4, line_spacing=1.1)
-                    
-                elif key == "{{NOM_PRENOM}}":
-                    for run in p.runs:
-                        run.bold = True
-                        run.font.size = Pt(16)
-                        run.font.color.rgb = RGBColor(0, 0, 0)
-                    set_paragraph_spacing(p, space_after=10, line_spacing=1.1)
-                    
+
+                p.clear()
+
+                # ----- CAS SPÉCIAL EXPERIENCES -----
+                if key == "{{EXPERIENCES}}":
+
+                    lines = val.split("\n")
+                    # ---- AJOUT D'UN ESPACE AVANT LA PREMIÈRE EXPÉRIENCE ----
+                    p.insert_paragraph_before("")
+
+                    for line in lines:
+
+                        if not line.strip():
+                            doc.add_paragraph("")
+                            continue
+
+                        new_p = p.insert_paragraph_before("")
+                        run = new_p.add_run(line)
+
+                        # TITRE → aligné à gauche
+                        if not line.strip().startswith("•"):
+                            new_p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                            run.bold = True
+
+                        # DÉTAIL → justifié
+                        else:
+                            new_p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                            new_p.paragraph_format.left_indent = Cm(1.0)
+
+                        set_paragraph_spacing(new_p, space_after=6, line_spacing=1.15)
+
+                    # on vide le paragraphe template
+                    p.text = ""
+
+                # ----- CAS NORMAL -----
                 else:
-                    set_paragraph_spacing(p, space_after=8, line_spacing=1.2)
+                    run = p.add_run(val if val else "Non renseigné")
+
+                    if key == "{{TITRE_PROFIL}}":
+                        for run in p.runs:
+                            run.bold = True
+                            run.font.size = Pt(20)
+                            run.font.color.rgb = RGBColor(77, 27, 130)
+                        set_paragraph_spacing(p, space_after=4, line_spacing=1.1)
+
+                    elif key == "{{NOM_PRENOM}}":
+                        for run in p.runs:
+                            run.bold = True
+                            run.font.size = Pt(16)
+                            run.font.color.rgb = RGBColor(0, 0, 0)
+                        set_paragraph_spacing(p, space_after=10, line_spacing=1.1)
+
+                    else:
+                        set_paragraph_spacing(p, space_after=8, line_spacing=1.2)
 
     # Traiter les tableaux
     for table in doc.tables:

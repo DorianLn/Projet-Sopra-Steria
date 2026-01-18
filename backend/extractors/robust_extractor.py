@@ -142,10 +142,17 @@ SECTION_ALIASES = {
 def normalize_title(title: str) -> str:
     title = title.upper().strip()
 
+    if title.startswith("EXPERIENCE"):
+        return "experiences"
+
+    if title.startswith("SAVOIRS"):
+        return "competences"
+
     for key, aliases in SECTION_ALIASES.items():
         for a in aliases:
             if a in title:
                 return key
+
     return "contact"
 
 
@@ -165,16 +172,20 @@ def find_sections(text: str) -> Dict[str, str]:
     for line in text.split("\n"):
         clean = line.strip()
 
+        if not clean:
+            continue
+
         normalized = normalize_title(clean)
 
-        # Si on détecte un vrai titre de section
-        if normalized != "contact":
+        # Si la ligne est un vrai titre connu
+        if normalized in sections and clean.isalpha():
             current = normalized
             continue
 
         sections[current] += clean + "\n"
 
     return sections
+
 
 
 
@@ -187,7 +198,8 @@ def parse_contact(text: str) -> Dict[str, Any]:
         "nom": None,
         "email": None,
         "telephone": None,
-        "adresse": None
+        "adresse": None,
+        "titre_profil": None
     }
 
     email = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text)
@@ -198,9 +210,22 @@ def parse_contact(text: str) -> Dict[str, Any]:
     if tel:
         result["telephone"] = tel.group(0)
 
-    adr = re.search(r"\d{5}\s+[A-Za-z\- ]+", text)
-    if adr:
-        result["adresse"] = adr.group(0)
+    # Détection d'adresse multi-lignes
+    lines = text.split("\n")
+    adresse_complete = None
+
+    for i, line in enumerate(lines):
+        if re.search(r"\d{5}\s+[A-Za-z\- ]+", line):
+            adresse_complete = line.strip()
+
+            # vérifier si la ligne précédente ressemble à une rue
+            if i > 0 and re.search(r"\d+\s+\w+", lines[i-1]):
+                adresse_complete = lines[i-1].strip() + " " + adresse_complete
+
+            break
+
+    if adresse_complete:
+        result["adresse"] = adresse_complete
 
     for line in text.split("\n")[:10]:
         clean = line.strip()
@@ -219,41 +244,22 @@ def parse_contact(text: str) -> Dict[str, Any]:
         if match:
             result["nom"] = match.group(0)
 
+    # NOUVEAU : détection titre profil
+    lines = text.split("\n")
+
+    for line in lines:
+        low = line.lower()
+        if any(k in low for k in ["étudiant", "developpeur", "ingénieur", "consultant", "stage"]):
+            result["titre_profil"] = line.strip()
+            break
+
     return result
 
+
 def parse_competences(text: str) -> List[str]:
+
     competences = []
-
-    for line in text.split("\n"):
-        line = line.strip("-• \t")
-
-        if ":" in line:
-            line = line.split(":", 1)[1]
-
-        parts = re.split(r",|/|;", line)
-
-        for p in parts:
-            p = p.strip()
-            if len(p) > 1:
-                competences.append(p)
-
-    return list(dict.fromkeys(competences))
-
-
-def parse_formations(text: str) -> List[str]:
-
-    formations = []
-
-    pattern_diplome = re.compile(
-        r"(19|20)\d{2}\s*[–-]\s*.+",
-        re.IGNORECASE
-    )
-
-    mots_cles_diplome = [
-        "diplôme", "master", "licence", "école",
-        "certification", "baccalauréat", "bac",
-        "istqb", "scrum", "psm"
-    ]
+    current = ""
 
     for line in text.split("\n"):
         line = line.strip()
@@ -261,46 +267,107 @@ def parse_formations(text: str) -> List[str]:
         if not line:
             continue
 
-        # On garde seulement les vraies formations / diplômes
-        if any(m in line.lower() for m in mots_cles_diplome):
-            formations.append(line)
+        # Début d’une vraie compétence (ligne commençant par tiret ou mot-clé)
+        if line.startswith("-") or ":" in line:
+            if current:
+                competences.append(current.strip())
+            current = line.strip("- ").strip()
+        else:
+            # continuation de la ligne précédente
+            current += " " + line
+
+    if current:
+        competences.append(current.strip())
+
+    return competences
+
+def split_competences(competences: List[str]) -> Dict[str, List[str]]:
+
+    techniques = []
+    fonctionnelles = []
+
+    is_soft = False
+
+    for comp in competences:
+
+        # Si la ligne contient Savoirs-être, on la nettoie et on bascule APRÈS
+        if "Savoirs-être" in comp:
+            comp = comp.replace("Savoirs-être", "").strip()
+            if comp:
+                techniques.append(comp)
+            is_soft = True
             continue
 
-        # Années sans mois = plutôt formation
-        if pattern_diplome.match(line) and not re.search(
-            r"(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)",
-            line.lower()
-        ):
-            formations.append(line)
+        if is_soft:
+            fonctionnelles.append(comp)
+        else:
+            techniques.append(comp)
 
-    return list(dict.fromkeys(formations))
+    return {
+        "techniques": techniques,
+        "fonctionnelles": fonctionnelles
+    }
+
+
+def parse_formations(text: str) -> List[str]:
+
+    formations = []
+
+    for line in text.split("\n"):
+        line = line.strip()
+
+        if not line:
+            continue
+
+        formations.append(line)
+
+    return formations
+
 
 
 def parse_experiences(text: str) -> List[str]:
 
     experiences = []
-
-    pattern_experience = re.compile(
-        r"(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)?\s*"
-        r"(19|20)\d{2}.*(–|-).+",
-        re.IGNORECASE
-    )
+    current = ""
 
     for line in text.split("\n"):
         line = line.strip()
 
-        if pattern_experience.match(line):
-            experiences.append(line)
+        if not line:
+            continue
+
+        # Si la ligne contient une année → début d’une nouvelle expérience
+        if re.search(r"(19|20)\d{2}", line):
+
+            if current:
+                experiences.append(current.strip())
+
+            current = line
+            continue
+
+        # Si la ligne commence par un tiret → description liée à l’expérience en cours
+        if line.startswith("-"):
+            current += " " + line.strip("- ").strip()
+            continue
+
+    # Ajouter la dernière expérience
+    if current:
+        experiences.append(current.strip())
 
     return experiences
+
 
 def parse_langues(text: str):
 
     result = []
 
     for line in text.split("\n"):
+        line = line.strip()
+
         if "français" in line.lower() or "anglais" in line.lower():
-            result.append(line.strip())
+            # On enlève les tirets ou puces éventuelles
+            clean = line.strip("-• ").strip()
+            result.append(clean)
 
     return result
 
@@ -327,10 +394,11 @@ def extract_cv_robust(file_path: str) -> Dict[str, Any]:
     clean = clean_text(raw)
 
     sections = find_sections(clean)
+    competences_raw = parse_competences(sections.get("competences", ""))
 
     data = {
         "contact": parse_contact(sections.get("contact", "")),
-        "competences": parse_competences(sections.get("competences", "")),
+        "competences": split_competences(competences_raw),
         "formations": parse_formations(sections.get("formations", "")),
         "experiences": parse_experiences(sections.get("experiences", "")),
         "langues": parse_langues(sections.get("langues", "")),

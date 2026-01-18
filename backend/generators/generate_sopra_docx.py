@@ -151,70 +151,86 @@ def format_experiences(exps: List[Dict], style: str = "professional") -> str:
     return bloc.strip() if bloc.strip() else "• Aucune expérience renseignée"
 
 
-def format_formations(forms: List[Dict], style: str = "professional") -> str:
-    """
-    Formate les formations avec diplôme si disponible.
-    
-    Args:
-        forms: Liste des formations structurées
-        style: "professional" (détaillé) ou "compact" (résumé)
-    """
-    if not isinstance(forms, list) or not forms:
+def format_formations(forms):
+
+    if not forms:
         return "• Aucune formation renseignée"
-    
-    # Trier par date (anti-chronologique)
+
     sorted_forms = sort_formations_by_date(forms)
-    
+
     lines = []
+
     for f in sorted_forms:
-        if not isinstance(f, dict):
+
+        # Cas 1 : formation en string (nouveau format)
+        if isinstance(f, str):
+            lines.append(f"• {f}")
             continue
-        
-        etablissement = f.get('etablissement', 'Établissement non précisé')
-        dates = normalize_date_display(f.get('dates'))
-        diplome = f.get('diplome')
-        lieu = f.get('lieu', '')
-        
-        if style == "professional":
+
+        # Cas 2 : ancien format dict
+        if isinstance(f, dict):
+            etablissement = f.get("etablissement", "Établissement non précisé")
+            dates = normalize_date_display(f.get("dates"))
+            diplome = f.get("diplome")
+
             if diplome:
-                line = f"**{diplome}**\n  {etablissement}"
-                if lieu:
-                    line += f" – {lieu}"
-                line += f" ({dates})"
+                line = f"• {diplome} – {etablissement} ({dates})"
             else:
-                line = f"**{etablissement}**"
-                if lieu:
-                    line += f" – {lieu}"
-                line += f" ({dates})"
+                line = f"• {etablissement} ({dates})"
+
             lines.append(line)
-        else:
-            # Format compact
-            if diplome:
-                lines.append(f"• {diplome} – {etablissement} ({dates})")
-            else:
-                lines.append(f"• {etablissement} ({dates})")
-    
+
     return "\n".join(lines) if lines else "• Aucune formation renseignée"
 
 
-def sort_experiences_by_date(exps: List[Dict]) -> List[Dict]:
-    """Trie les expériences par date (anti-chronologique)."""
+
+def sort_experiences_by_date(exps):
+    """Trie les expériences par date (anti-chronologique) en acceptant string ou dict."""
+
     def extract_year(exp):
-        dates = str(exp.get("dates", ""))
-        match = re.search(r'(19|20)\d{2}', dates)
-        return int(match.group(0)) if match else 0
-    
+
+        if isinstance(exp, str):
+            match = re.search(r"(19|20)\d{2}", exp)
+            if match:
+                return int(match.group(0))
+            return 0
+
+        if isinstance(exp, dict):
+            dates = str(exp.get("dates", ""))
+            match = re.search(r"(19|20)\d{2}", dates)
+            if match:
+                return int(match.group(0))
+            return 0
+
+        return 0
+
     return sorted(exps, key=extract_year, reverse=True)
 
 
-def sort_formations_by_date(forms: List[Dict]) -> List[Dict]:
-    """Trie les formations par date (anti-chronologique)."""
+def sort_formations_by_date(forms):
+    """Trie les formations par date (anti-chronologique) en acceptant string ou dict."""
+
     def extract_year(form):
-        dates = str(form.get("dates", ""))
-        match = re.search(r'(19|20)\d{2}', dates)
-        return int(match.group(0)) if match else 0
-    
+
+        # Cas 1 : la formation est une STRING
+        if isinstance(form, str):
+            match = re.search(r"(19|20)\d{2}", form)
+            if match:
+                return int(match.group(0))
+            return 0
+
+        # Cas 2 : la formation est un DICT (ancien format)
+        if isinstance(form, dict):
+            dates = str(form.get("dates", ""))
+            match = re.search(r"(19|20)\d{2}", dates)
+            if match:
+                return int(match.group(0))
+            return 0
+
+        return 0
+
     return sorted(forms, key=extract_year, reverse=True)
+
 
 
 def normalize_date_display(date_str: Optional[str]) -> str:
@@ -301,23 +317,25 @@ def generate_sopra_docx(cv_data, output_path):
     dispo_str = disponibilite if disponibilite else "Non précisée"
 
     mapping = {
-        "{{NOM}}": nom,
+        # Champs principaux attendus par le template
+        "{{NOM_PRENOM}}": nom,
         "{{TITRE_PROFIL}}": titre_profil,
-        "{{CONTACT}}": format_contact(contact),
-        "{{EMAIL}}": contact.get("email") or "Non renseigné",
-        "{{TELEPHONE}}": contact.get("telephone") or "Non renseigné",
-        "{{ADRESSE}}": contact.get("adresse") or "Non renseignée",
+
+        # Compétences classifiées
         "{{COMP_FONCT}}": bullets(comp_fonct, "Aucune compétence fonctionnelle"),
         "{{COMP_TECH}}": bullets(comp_tech, "Aucune compétence technique"),
-        "{{COMPETENCES}}": bullets(cv_data.get("competences", []), "Aucune compétence"),
-        "{{EXPERIENCES}}": format_experiences(cv_data.get("experiences")),
-        "{{FORMATIONS}}": format_formations(cv_data.get("formations")),
+
+        # Sections majeures
+        "{{EXPERIENCES}}": format_experiences(cv_data.get("experiences", [])),
+
+        # Ici on fusionne formations + certifications car le template n’a qu’un bloc
+        "{{FORMATIONS_CERTIFICATIONS}}":
+            format_formations(cv_data.get("formations", [])) + "\n" +
+            bullets(cv_data.get("certifications", []), ""),
+
         "{{LANGUES}}": bullets(cv_data.get("langues", []), "Non renseigné"),
-        "{{CERTIFICATIONS}}": bullets(cv_data.get("certifications", []), "Aucune certification"),
-        "{{LOISIRS}}": bullets(cv_data.get("loisirs", []), "Non renseigné"),
-        "{{PROJETS}}": projets_str,
-        "{{DISPONIBILITE}}": dispo_str,
     }
+
 
     # -------------------------
     # 3) REMPLACEMENT TEMPLATE COMPLET
@@ -428,8 +446,9 @@ def validate_cv_data(cv_data: Dict) -> List[str]:
         warnings.append("Aucune formation")
     else:
         for i, f in enumerate(formations):
-            if not f.get("etablissement") and not f.get("diplome"):
-                warnings.append(f"Formation {i+1}: établissement et diplôme manquants")
+            if isinstance(f, dict):
+                if not f.get("etablissement") and not f.get("diplome"):
+                    warnings.append(f"Formation {i+1}: établissement et diplôme manquants")
     
     # Vérifier les expériences
     experiences = cv_data.get("experiences", [])
@@ -457,7 +476,10 @@ def preview_cv_content(cv_data: Dict) -> str:
     
     lines.append("--- FORMATIONS ---")
     for f in cv_data.get("formations", [])[:3]:
-        lines.append(f"  • {f.get('diplome', 'N/A')} - {f.get('etablissement', 'N/A')}")
+        if isinstance(f, dict):
+            lines.append(f"  • {f.get('diplome', 'N/A')} - {f.get('etablissement', 'N/A')}")
+        else:
+            lines.append(f"  • {f}")
     
     lines.append("")
     lines.append("--- EXPÉRIENCES ---")

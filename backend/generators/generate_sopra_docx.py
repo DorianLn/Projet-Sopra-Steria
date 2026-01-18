@@ -25,7 +25,24 @@ def add_horizontal_line(paragraph, color="7030A0"):
     pbdr.append(bottom)
 
     pPr.append(pbdr)
+# ---------------------------
+#      DOCX FORMATTING      
+# ---------------------------
+from docx.shared import Pt
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
+def set_paragraph_spacing(paragraph, space_after=6, line_spacing=1.15):
+    p = paragraph._p
+    pPr = p.get_or_add_pPr()
+
+    # Espacement après paragraphe
+    spacing = OxmlElement("w:spacing")
+    spacing.set(qn("w:after"), str(space_after * 20))  # valeur en twips
+    spacing.set(qn("w:line"), str(int(line_spacing * 240)))
+    spacing.set(qn("w:lineRule"), "auto")
+
+    pPr.append(spacing)
 
 def set_cell_shading(cell, color):
     """Définit la couleur de fond d'une cellule."""
@@ -90,65 +107,21 @@ def bullets(lst, fallback="Non renseigné"):
         return f"• {fallback}"
     return "\n".join(f"• {v}" for v in clean_items)
 
+def format_experiences(exps):
 
-def format_experiences(exps: List[Dict], style: str = "professional") -> str:
-    """
-    Formate les expériences avec les données réelles extraites.
-    
-    Args:
-        exps: Liste des expériences structurées
-        style: "professional" (détaillé) ou "compact" (résumé)
-    """
     if not isinstance(exps, list) or not exps:
         return "• Aucune expérience renseignée"
 
-    bloc = ""
-    
-    # Trier par date (anti-chronologique)
-    sorted_exps = sort_experiences_by_date(exps)
-    
-    for e in sorted_exps:
-        if not isinstance(e, dict):
-            continue
-        
-        # Extraire les données
-        dates = normalize_date_display(e.get("dates"))
-        entreprise = e.get("entreprise") or "Entreprise non précisée"
-        poste = e.get("poste") or ""
-        lieu = e.get("lieu", "")
-        description = e.get("description")
+    lines = []
 
-        if style == "professional":
-            # Format professionnel détaillé
-            header = f"{dates}"
-            if lieu:
-                header += f" – {lieu}"
-            bloc += f"{header}\n"
-            
-            if poste:
-                bloc += f"**{poste}** – {entreprise}\n"
-            else:
-                bloc += f"**{entreprise}**\n"
-            
-            if description and description.strip():
-                # Formater la description avec des puces
-                desc_lines = description.strip().split('\n')
-                for line in desc_lines:
-                    line = line.strip()
-                    if line and not line.startswith('•') and not line.startswith('-'):
-                        bloc += f"  • {line}\n"
-                    elif line:
-                        bloc += f"  {line}\n"
-            
-            bloc += "\n"
-        else:
-            # Format compact
-            if poste:
-                bloc += f"• {poste} – {entreprise} ({dates})\n"
-            else:
-                bloc += f"• {entreprise} ({dates})\n"
+    for exp in exps:
+        if isinstance(exp, str) and exp.strip():
+            lines.append(f"• {exp.strip()}")
 
-    return bloc.strip() if bloc.strip() else "• Aucune expérience renseignée"
+    if not lines:
+        return "• Aucune expérience renseignée"
+
+    return "\n".join(lines)
 
 
 def format_formations(forms):
@@ -264,7 +237,46 @@ def format_contact(contact):
     
     return "\n".join(lines) if lines else "Contact non renseigné"
 
-
+# ---------------------------
+#      DOCX HEADER
+# ---------------------------
+def add_header_to_document(doc, titre_profil, nom):
+    """
+    Ajoute le titre de profil et le nom dans l'en-tête du document
+    à partir de la deuxième page.
+    """
+    for section in doc.sections:
+        # Activer un header différent pour la première page
+        section.different_first_page_header_footer = True
+        
+        # En-tête par défaut (pages 2+)
+        header = section.header
+        
+        # Nettoyer l'en-tête existant
+        for paragraph in header.paragraphs:
+            paragraph.clear()
+        
+        # ✅ Ajouter le titre profil (sans saut de ligne avant)
+        p_titre = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+        run_titre = p_titre.add_run(titre_profil)
+        run_titre.bold = True
+        run_titre.font.size = Pt(12)
+        run_titre.font.color.rgb = RGBColor(0, 0, 0) 
+        p_titre.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        set_paragraph_spacing(p_titre, space_after=2, line_spacing=1.0)
+        
+        # Ajouter le nom
+        p_nom = header.add_paragraph()
+        run_nom = p_nom.add_run(nom)
+        run_nom.bold = True
+        run_nom.font.size = Pt(10)
+        run_nom.font.color.rgb = RGBColor(0, 0, 0)
+        p_nom.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        set_paragraph_spacing(p_nom, space_after=6, line_spacing=1.0)
+        
+        # Ligne de séparation orange Sopra
+        p_line = header.add_paragraph()
+        add_horizontal_line(p_line, color="F08650")
 # ---------------------------
 #   GENERATE DOCX FINAL
 # ---------------------------
@@ -277,77 +289,51 @@ def generate_sopra_docx(cv_data, output_path):
     doc = Document(template_path)
 
     contact = cv_data.get("contact", {}) or {}
-    titre_profil = cv_data.get("titre_profil") or "Profil Collaborateur"
 
-    # -------------------------
-    #  1) GRAND TITRE (Nom + Titre Profil)
-    # -------------------------
+    titre_profil = contact.get("titre_profil") or "Profil Collaborateur"
     nom = contact.get("nom") or "Nom Prénom"
-    
-    if doc.paragraphs:
-        title_paragraph = doc.paragraphs[0]
-        title_paragraph.text = nom
-        
-        if title_paragraph.runs:
-            title_paragraph.runs[0].bold = True
-            try:
-                title_paragraph.runs[0].font.size = doc.styles['Heading 1'].font.size
-            except:
-                title_paragraph.runs[0].font.size = Pt(24)
 
-    # Ajouter le titre du profil
-    profil_para = doc.add_paragraph()
-    profil_run = profil_para.add_run(titre_profil)
-    profil_run.bold = True
-    profil_run.font.size = Pt(14)
-    
-    # Ajouter la ligne horizontale style Sopra
-    line = doc.add_paragraph()
-    add_horizontal_line(line)
+    competences = cv_data.get("competences", {}) or {}
 
-    # -------------------------
-    # 2) EXTRACTION DES BLOCS COMPLETS
-    # -------------------------
-    comp_fonct, comp_tech = classify_competences(cv_data.get("competences", []))
-    
-    projets = cv_data.get("projets", [])
-    projets_str = bullets(projets, "Aucun projet renseigné") if projets else ""
-    
-    disponibilite = cv_data.get("disponibilite")
-    dispo_str = disponibilite if disponibilite else "Non précisée"
+    comp_tech = competences.get("techniques", [])
+    comp_fonct = competences.get("fonctionnelles", [])
 
     mapping = {
-        # Champs principaux attendus par le template
-        "{{NOM_PRENOM}}": nom,
         "{{TITRE_PROFIL}}": titre_profil,
-
-        # Compétences classifiées
+        "{{NOM_PRENOM}}": nom,
         "{{COMP_FONCT}}": bullets(comp_fonct, "Aucune compétence fonctionnelle"),
         "{{COMP_TECH}}": bullets(comp_tech, "Aucune compétence technique"),
-
-        # Sections majeures
         "{{EXPERIENCES}}": format_experiences(cv_data.get("experiences", [])),
-
-        # Ici on fusionne formations + certifications car le template n’a qu’un bloc
-        "{{FORMATIONS_CERTIFICATIONS}}":
-            format_formations(cv_data.get("formations", [])) + "\n" +
-            bullets(cv_data.get("certifications", []), ""),
-
+        "{{FORMATIONS_CERTIFICATIONS}}": format_formations(cv_data.get("formations", [])),
         "{{LANGUES}}": bullets(cv_data.get("langues", []), "Non renseigné"),
     }
 
-
-    # -------------------------
-    # 3) REMPLACEMENT TEMPLATE COMPLET
-    # -------------------------
+    # --------- REMPLACEMENT CONTENU ---------
     for p in doc.paragraphs:
         original_text = p.text
+        
         for key, val in mapping.items():
             if key in p.text:
                 p.text = p.text.replace(key, val if val else "Non renseigné")
-                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    
-    # Parcourir aussi les tableaux si présents
+                
+                if key == "{{TITRE_PROFIL}}":
+                    for run in p.runs:
+                        run.bold = True
+                        run.font.size = Pt(20)
+                        run.font.color.rgb = RGBColor(77, 27, 130)
+                    set_paragraph_spacing(p, space_after=4, line_spacing=1.1)
+                    
+                elif key == "{{NOM_PRENOM}}":
+                    for run in p.runs:
+                        run.bold = True
+                        run.font.size = Pt(16)
+                        run.font.color.rgb = RGBColor(0, 0, 0)
+                    set_paragraph_spacing(p, space_after=10, line_spacing=1.1)
+                    
+                else:
+                    set_paragraph_spacing(p, space_after=8, line_spacing=1.2)
+
+    # Traiter les tableaux
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -355,7 +341,10 @@ def generate_sopra_docx(cv_data, output_path):
                     for key, val in mapping.items():
                         if key in p.text:
                             p.text = p.text.replace(key, val if val else "Non renseigné")
+                    set_paragraph_spacing(p, space_after=8, line_spacing=1.2)
 
+    # ✅ AJOUTER L'EN-TÊTE POUR LES PAGES 2+
+    add_header_to_document(doc, titre_profil, nom)
 
     doc.save(output_path)
     return output_path
@@ -454,6 +443,7 @@ def validate_cv_data(cv_data: Dict) -> List[str]:
     experiences = cv_data.get("experiences", [])
     if not experiences:
         warnings.append("Aucune expérience")
+
     else:
         for i, e in enumerate(experiences):
             if not e.get("entreprise"):
@@ -463,32 +453,33 @@ def validate_cv_data(cv_data: Dict) -> List[str]:
 
 
 def preview_cv_content(cv_data: Dict) -> str:
-    """
-    Génère un aperçu texte du contenu CV.
-    """
+
     lines = []
-    
+
     contact = cv_data.get("contact", {})
     lines.append(f"=== {contact.get('nom', 'N/A')} ===")
     lines.append(f"Email: {contact.get('email', 'N/A')}")
     lines.append(f"Tél: {contact.get('telephone', 'N/A')}")
     lines.append("")
-    
+
     lines.append("--- FORMATIONS ---")
     for f in cv_data.get("formations", [])[:3]:
-        if isinstance(f, dict):
-            lines.append(f"  • {f.get('diplome', 'N/A')} - {f.get('etablissement', 'N/A')}")
-        else:
-            lines.append(f"  • {f}")
-    
+        lines.append(f"  • {f}")
+
     lines.append("")
     lines.append("--- EXPÉRIENCES ---")
     for e in cv_data.get("experiences", [])[:3]:
-        lines.append(f"  • {e.get('poste', 'N/A')} - {e.get('entreprise', 'N/A')}")
-    
+        lines.append(f"  • {e}")
+
     lines.append("")
     lines.append("--- COMPÉTENCES ---")
-    skills = cv_data.get("competences", [])[:10]
-    lines.append(f"  {', '.join(skills) if skills else 'N/A'}")
-    
+
+    competences = cv_data.get("competences", {})
+
+    tech = competences.get("techniques", [])
+    fonct = competences.get("fonctionnelles", [])
+
+    lines.append("Techniques : " + ", ".join(tech))
+    lines.append("Fonctionnelles : " + ", ".join(fonct))
+
     return "\n".join(lines)

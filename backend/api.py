@@ -247,8 +247,8 @@ def normalize_cv():
                 "nb_experiences": len(cv_normalized.get("experiences", [])),
                 "nb_formations": len(cv_normalized.get("formations", [])),
                 "nb_competences": (
-                    len(cv_normalized.get("competences", {}).get("techniques", [])) +
-                    len(cv_normalized.get("competences", {}).get("fonctionnelles", []))
+                    len(cv_normalized.get("competences_techniques", [])) +
+                    len(cv_normalized.get("competences_fonctionnelles", []))
                 ),
                 "nb_langues": len(cv_normalized.get("langues", []))
             }
@@ -300,14 +300,18 @@ def normalize_cv():
         metadata = {
             "version_source": "old",
             "version_cible": "2.0",
+
             "nb_experiences": len(cv_normalized.get("experiences", [])),
             "nb_formations": len(cv_normalized.get("formations", [])),
+
             "nb_competences": (
                 len(cv_normalized.get("competences_techniques", [])) +
                 len(cv_normalized.get("competences_fonctionnelles", []))
             ),
+
             "nb_langues": len(cv_normalized.get("langues", []))
         }
+
         
         return jsonify({
             'success': True,
@@ -401,163 +405,112 @@ def normalize_cv_batch():
 @app.route('/api/cv/normalize/docx', methods=['POST'])
 def normalize_and_export_docx():
     """
-    Endpoint: POST /api/cv/normalize/docx
-    
-    Normalise un CV et retourne directement le DOCX généré.
-    
-    Body:
-    {
-      "cv_data": {...ancien JSON...}  ou upload fichier
-    }
-    
-    Retour: Fichier DOCX à télécharger
+    Reçoit un CV déjà normalisé (format v2.0)
+    et génère directement un DOCX à partir de celui-ci.
     """
+
     try:
         from generators.generate_sopra_docx import generate_sopra_docx
-        
-        # Mode 1: Fichier uploadé
-        if 'file' in request.files:
-            file = request.files['file']
-            if file.filename == '':
-                return jsonify({'error': 'Aucun fichier sélectionné'}), 400
-            
-            filename = secure_filename(file.filename)
-            file_path = Path(app.config['UPLOAD_FOLDER']) / filename
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            file.save(str(file_path))
-            
-            # Chargement selon type
-            if filename.endswith('.json'):
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    cv_data = json.load(f)
-                cv_normalized = normalize_old_cv_to_new(cv_data)
-            elif filename.endswith('.docx'):
-                # Pour DOCX: extraction optimale directe du fichier
-                cv_normalized = normalize_old_cv_to_new({}, docx_path=str(file_path))
-            else:
-                return jsonify({'error': 'Format non supporté'}), 400
-            
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        
-        # Mode 2: JSON en body
-        elif request.is_json:
-            data = request.get_json()
-            cv_data = data.get('cv_data')
-            if not cv_data:
-                return jsonify({'error': 'cv_data manquant'}), 400
-            cv_normalized = normalize_old_cv_to_new(cv_data)
-        else:
-            return jsonify({'error': 'Aucun fichier ou JSON envoyé'}), 400
-        
-        # Conversion au format ancien pour compatibilité DOCX
+
+        # Vérifier qu’on a bien du JSON
+        if not request.is_json:
+            return jsonify({
+                "error": "Le body doit être du JSON contenant { cv_data }"
+            }), 400
+
+        data = request.get_json()
+
+        cv_normalized = data.get("cv_data")
+
+        if not cv_normalized:
+            return jsonify({
+                "error": "Champ 'cv_data' manquant dans la requête"
+            }), 400
+
+        # Conversion du format v2 vers l’ancien format attendu par generate_sopra_docx
         cv_old_format = convert_v2_to_old_format(cv_normalized)
-        
-        # Génération du DOCX avec nom unique (timestamp)
-        output_dir = Path(__file__).parent / "data" / "output"
+
+        # Dossier de sortie
+        output_dir = Path("data/output")
         output_dir.mkdir(parents=True, exist_ok=True)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        docx_filename = f"cv_normalized_{timestamp}.docx"
-        docx_path = output_dir / docx_filename
-        
+
+        # Nom unique
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        docx_path = output_dir / f"cv_normalized_{timestamp}.docx"
+
+        # Génération du DOCX
         generate_sopra_docx(cv_old_format, str(docx_path))
-        
+
         return send_file(
             str(docx_path),
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             as_attachment=True,
             download_name="cv_normalized.docx"
         )
-    
+
     except Exception as e:
-        logging.error(f"Erreur export DOCX normalisé: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"[DOCX EXPORT] Erreur: {str(e)}")
+        return jsonify({
+            "error": f"Erreur lors de la génération DOCX: {str(e)}"
+        }), 500
 
 
 @app.route('/api/cv/normalize/pdf', methods=['POST'])
 def normalize_and_export_pdf():
     """
-    Endpoint: POST /api/cv/normalize/pdf
-    
-    Normalise un CV et retourne directement le PDF généré.
-    
-    Body:
-    {
-      "cv_data": {...ancien JSON...}  ou upload fichier
-    }
-    
-    Retour: Fichier PDF à télécharger
+    Reçoit un CV déjà normalisé (format v2.0)
+    et génère directement un PDF à partir de celui-ci.
     """
+
     try:
         from generators.generate_sopra_docx import generate_sopra_docx
         from generators.docx_to_pdf import convert_docx_to_pdf
-        
-        # Mode 1: Fichier uploadé
-        if 'file' in request.files:
-            file = request.files['file']
-            if file.filename == '':
-                return jsonify({'error': 'Aucun fichier sélectionné'}), 400
-            
-            filename = secure_filename(file.filename)
-            file_path = Path(app.config['UPLOAD_FOLDER']) / filename
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            file.save(str(file_path))
-            
-            # Chargement selon type
-            if filename.endswith('.json'):
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    cv_data = json.load(f)
-                cv_normalized = normalize_old_cv_to_new(cv_data)
-            elif filename.endswith('.docx'):
-                # Pour DOCX: extraction optimale directe du fichier
-                cv_normalized = normalize_old_cv_to_new({}, docx_path=str(file_path))
-            else:
-                return jsonify({'error': 'Format non supporté'}), 400
-            
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        
-        # Mode 2: JSON en body
-        elif request.is_json:
-            data = request.get_json()
-            cv_data = data.get('cv_data')
-            if not cv_data:
-                return jsonify({'error': 'cv_data manquant'}), 400
-            cv_normalized = normalize_old_cv_to_new(cv_data)
-        else:
-            return jsonify({'error': 'Aucun fichier ou JSON envoyé'}), 400
-        
-        # Conversion au format ancien pour compatibilité DOCX
+
+        # Vérifier qu’on a bien du JSON
+        if not request.is_json:
+            return jsonify({
+                "error": "Le body doit être du JSON contenant { cv_data }"
+            }), 400
+
+        data = request.get_json()
+
+        cv_normalized = data.get("cv_data")
+
+        if not cv_normalized:
+            return jsonify({
+                "error": "Champ 'cv_data' manquant dans la requête"
+            }), 400
+
+        # Conversion au format ancien attendu par le générateur
         cv_old_format = convert_v2_to_old_format(cv_normalized)
-        
-        # Génération du DOCX temporaire puis PDF avec nom unique (timestamp)
-        output_dir = Path(__file__).parent / "data" / "output"
+
+        # Dossiers de sortie
+        output_dir = Path("data/output")
         output_dir.mkdir(parents=True, exist_ok=True)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        docx_filename = f"cv_normalized_{timestamp}.docx"
-        pdf_filename = f"cv_normalized_{timestamp}.pdf"
-        docx_path = output_dir / docx_filename
-        pdf_path = output_dir / pdf_filename
-        
+
+        # Noms uniques
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        docx_path = output_dir / f"cv_temp_{timestamp}.docx"
+        pdf_path = output_dir / f"cv_normalized_{timestamp}.pdf"
+
+        # Étape 1 : générer DOCX
         generate_sopra_docx(cv_old_format, str(docx_path))
+
+        # Étape 2 : convertir en PDF
         convert_docx_to_pdf(str(docx_path), str(pdf_path))
-        
+
         return send_file(
             str(pdf_path),
             mimetype="application/pdf",
             as_attachment=True,
             download_name="cv_normalized.pdf"
         )
-    
+
     except Exception as e:
-        logging.error(f"Erreur export PDF normalisé: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"[PDF EXPORT] Erreur: {str(e)}")
+        return jsonify({
+            "error": f"Erreur lors de la génération PDF: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, use_reloader=False)

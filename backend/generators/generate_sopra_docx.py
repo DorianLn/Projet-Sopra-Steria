@@ -432,15 +432,42 @@ def generate_sopra_docx(cv_data, output_path):
     comp_tech = competences.get("techniques", [])
     comp_fonct = competences.get("fonctionnelles", [])
 
+    experiences_raw = cv_data.get("experiences", [])
+
+    # Si c'est déjà une chaîne multi-lignes (cas Walid), on l'utilise directement
+    if isinstance(experiences_raw, str):
+
+        lines = []
+        for line in experiences_raw.split("\n"):
+
+            line = line.strip()
+            if not line:
+                lines.append("")
+                continue
+
+            # Si la ligne contient une période -> c'est un TITRE
+            if re.search(r"(Depuis\s+\d{4}|\d{4}\s*à\s*\d{4})", line):
+                lines.append(line)
+
+            # sinon c'est une mission -> on ajoute une puce
+            else:
+                lines.append("• " + line)
+
+        experiences_formatted = "\n".join(lines)
+
+    else:
+        experiences_formatted = choose_experience_formatter(experiences_raw)
+
     mapping = {
         "{{TITRE_PROFIL}}": titre_profil,
         "{{NOM_PRENOM}}": nom,
         "{{COMP_FONCT}}": bullets(comp_fonct, "Aucune compétence fonctionnelle"),
         "{{COMP_TECH}}": bullets(comp_tech, "Aucune compétence technique"),
-        "{{EXPERIENCES}}": choose_experience_formatter(cv_data.get("experiences", [])),
+        "{{EXPERIENCES}}": experiences_formatted,
         "{{FORMATIONS_CERTIFICATIONS}}": format_formations(cv_data.get("formations", [])),
         "{{LANGUES}}": bullets(cv_data.get("langues", []), "Non renseigné"),
     }
+
 
     # --------- REMPLACEMENT CONTENU ---------
     for p in doc.paragraphs:

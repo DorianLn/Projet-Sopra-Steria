@@ -363,15 +363,61 @@ def convert_v2_to_old_format(cv_template: Dict) -> Dict[str, Any]:
     
     # Extraction basique
     header = cv_template.get("header", {})
+    if not isinstance(header, dict):
+        header = {}
+    
     initiales = header.get("initiales", "")
     
+    # Extraire le nom depuis header ou contact
+    nom = None
+    if header.get("initiales"):
+        nom = header.get("initiales")
+    
+    contact_data = cv_template.get("contact", {})
+    if isinstance(contact_data, dict) and contact_data.get("nom"):
+        nom = contact_data.get("nom")
+    
     # Construire un nom basique depuis initiales
-    nom = initiales or "Candidat"
+    nom = nom or initiales or "Candidat"
+    
+    # Helper pour convertir les listes en strings
+    def extract_strings(value):
+        """Extrait les strings d'une valeur (peut être liste, dict, string, etc)"""
+        if isinstance(value, str):
+            return [value] if value.strip() else []
+        elif isinstance(value, dict):
+            # Si c'est un dict, en extraire les valeurs et les joindre
+            values = []
+            for v in value.values():
+                if isinstance(v, str) and v.strip():
+                    values.append(v.strip())
+            return values
+        elif isinstance(value, (list, tuple)):
+            result = []
+            for item in value:
+                if isinstance(item, str) and item.strip():
+                    result.append(item.strip())
+                elif isinstance(item, dict):
+                    # Extraire les valeurs du dict
+                    for v in item.values():
+                        if isinstance(v, str) and v.strip():
+                            result.append(v.strip())
+            return result
+        return []
     
     # Competences: fusionner techniques + fonctionnelles
     comp_techniques = cv_template.get("competences_techniques", [])
     comp_fonctionnelles = cv_template.get("competences_fonctionnelles", [])
-    competences_flat = comp_techniques + comp_fonctionnelles
+    
+    competences_flat = []
+    for item in comp_techniques + comp_fonctionnelles:
+        if isinstance(item, str) and item.strip():
+            competences_flat.append(item.strip())
+        elif isinstance(item, dict):
+            # Si dict, extraire les valeurs pertinentes
+            for v in item.values():
+                if isinstance(v, str) and v.strip():
+                    competences_flat.append(v.strip())
     
     # Experiences: convertir strings en structure dict pour generate_sopra_docx
     experiences = []
@@ -380,15 +426,15 @@ def convert_v2_to_old_format(cv_template: Dict) -> Dict[str, Any]:
     if isinstance(exp_list, list):
         for exp in exp_list:
             if isinstance(exp, dict):
-                # Déjà en format dict (peut arriver avec old code)
+                # Déjà en format dict
                 experiences.append(exp)
-            elif isinstance(exp, str):
+            elif isinstance(exp, str) and exp.strip():
                 # String brut: créer une entrée dict simple
                 experiences.append({
                     "dates": "",
                     "entreprise": "",
                     "poste": "",
-                    "description": [exp.strip()] if exp.strip() else []
+                    "description": [exp.strip()]
                 })
     
     # Formations: convertir si nécessaire
@@ -397,9 +443,9 @@ def convert_v2_to_old_format(cv_template: Dict) -> Dict[str, Any]:
     
     if isinstance(form_list, list):
         for form in form_list:
-            if isinstance(form, str):
+            if isinstance(form, str) and form.strip():
                 formations.append({
-                    "diplome": form.strip() if form.strip() else "",
+                    "diplome": form.strip(),
                     "annee": "",
                     "etablissement": ""
                 })
@@ -407,7 +453,12 @@ def convert_v2_to_old_format(cv_template: Dict) -> Dict[str, Any]:
                 formations.append(form)
     
     # Langues: garder comme-is (liste de strings)
-    langues = cv_template.get("langues", [])
+    langues = []
+    lang_list = cv_template.get("langues", [])
+    if isinstance(lang_list, list):
+        for lang in lang_list:
+            if isinstance(lang, str) and lang.strip():
+                langues.append(lang.strip())
     
     # Construire le format ancien
     return {

@@ -47,14 +47,24 @@ const computeExtractionScore = (result) => {
     disponibilite: 2,
   };
 
-  if (result.contact?.nom && result.contact?.email) score += weights.contact;
-  if (result.formations?.length) score += weights.formations;
-  if (result.experiences?.length) score += weights.experiences;
-  if (result.competences?.length) score += weights.competences;
-  if (result.langues?.length) score += weights.langues;
-  if (result.projets?.length) score += weights.projets;
-  if (result.certifications?.length) score += weights.certifications;
-  if (result.disponibilite) score += weights.disponibilite;
+  // Comptage des éléments extraits
+  const hasContact = result.contact?.nom && result.contact?.email;
+  const hasFormations = result.formations?.length > 0;
+  const hasExperiences = result.experiences?.length > 0;
+  const hasCompetences = result.competences?.techniques?.length > 0 || result.competences?.fonctionnelles?.length > 0;
+  const hasLangues = result.langues?.length > 0;
+  const hasProjets = result.projets?.length > 0;
+  const hasCertifications = result.certifications?.length > 0;
+  const hasDisponibilite = result.disponibilite;
+
+  if (hasContact) score += weights.contact;
+  if (hasFormations) score += weights.formations;
+  if (hasExperiences) score += weights.experiences;
+  if (hasCompetences) score += weights.competences;
+  if (hasLangues) score += weights.langues;
+  if (hasProjets) score += weights.projets;
+  if (hasCertifications) score += weights.certifications;
+  if (hasDisponibilite) score += weights.disponibilite;
 
   // --- Penalties ---
   let penalties = 0;
@@ -62,32 +72,50 @@ const computeExtractionScore = (result) => {
   // Nom mal extrait (contient un métier ou trop de mots)
   if (
     result.contact?.nom &&
-    /développeur|ingénieur|chef|manager/i.test(result.contact.nom)
+    /développeur|ingénieur|chef|manager|consultant/i.test(result.contact.nom)
   ) {
-    penalties += 10;
+    penalties += 5; // Pénalité réduite
   }
 
   // Dates incohérentes
   result.experiences?.forEach((exp) => {
-    const years = exp.dates?.match(/(19|20)\d{2}/g);
+    const dateStr = typeof exp === 'string' ? exp : exp.dates || '';
+    const years = dateStr.match(/(19|20)\d{2}/g);
     if (years && years.length === 2) {
-      if (parseInt(years[1]) < parseInt(years[0])) penalties += 8;
+      if (parseInt(years[1]) < parseInt(years[0])) penalties += 3;
     }
   });
 
-  // Exp sans dates
+  // Exp sans dates - pénalité moins sévère
   const emptyDatesCount =
-    result.experiences?.filter((e) => !e.dates)?.length || 0;
-  penalties += emptyDatesCount * 5;
+    result.experiences?.filter((e) => {
+      const dateStr = typeof e === 'string' ? e : e.dates || '';
+      return !dateStr;
+    })?.length || 0;
+  penalties += emptyDatesCount * 2;
 
   // Doublons entreprises
   const entreprises = new Set();
   result.experiences?.forEach((e) => {
-    if (entreprises.has(e.entreprise)) penalties += 5;
-    entreprises.add(e.entreprise);
+    const ent = typeof e === 'string' ? '' : e.entreprise || '';
+    if (ent && entreprises.has(ent)) penalties += 2;
+    if (ent) entreprises.add(ent);
   });
 
-  score -= penalties;
+  // Le score final doit refléter ce qui a été réellement extrait
+  score = Math.max(score - penalties, 0);
+
+  // Si au minimum contact + 1 autre section est remplie, score minimum 40%
+  let filledSections = 0;
+  if (hasContact) filledSections++;
+  if (hasFormations) filledSections++;
+  if (hasExperiences) filledSections++;
+  if (hasCompetences) filledSections++;
+  if (hasLangues) filledSections++;
+  
+  if (filledSections >= 2) {
+    score = Math.max(score, 40);
+  }
 
   return Math.max(0, Math.min(100, score));
 };
@@ -101,18 +129,25 @@ const computeProfessionalCvScore = (result) => {
     ...(result.competences?.techniques || []),
     ...(result.competences?.fonctionnelles || []),
   ];
+  const compCount = comp.length;
+  if (compCount >= 10) score += 20;
+  else if (compCount >= 5) score += 15;
+  else if (compCount >= 2) score += 10;
+  else if (compCount >= 1) score += 5;
+
+  // Bonus pour technologies avancées
   const hasBackend = comp.some((c) =>
-    /python|java|spring|node|django|c\+\+/i.test(c)
+    /python|java|spring|node|django|c\+\+|go|rust/i.test(c)
   );
   const hasFrontend = comp.some((c) =>
-    /react|angular|vue|html|css|javascript/i.test(c)
+    /react|angular|vue|html|css|typescript|javascript/i.test(c)
   );
   const hasCloud = comp.some((c) =>
-    /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd/i.test(c)
+    /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd|devops/i.test(c)
   );
-  const hasSoft = comp.some((c) => /communication|leadership|gestion/i.test(c));
+  const hasSoft = comp.some((c) => /communication|leadership|gestion|agile/i.test(c));
 
-  score += (hasBackend + hasFrontend + hasCloud + hasSoft) * 5; // max 20
+  score += (hasBackend + hasFrontend + hasCloud + hasSoft) * 3; // bonus max 12
 
   // 2) Expérience totale
   const years = estimateExperienceLevel(result).years;
@@ -123,9 +158,10 @@ const computeProfessionalCvScore = (result) => {
 
   // 3) Études
   const formations = result.formations || [];
-  if (formations.some((f) => /master|bac\+5|ingénieur/i.test(f.etablissement)))
+  const formStr = formations.map(f => typeof f === 'string' ? f : (f.etablissement || f.title || '')).join(' ');
+  if (formStr && /master|bac\+5|ingénieur|école/i.test(formStr))
     score += 15;
-  else if (formations.some((f) => /licence|bac\+3/i.test(f.etablissement)))
+  else if (formStr && /licence|bac\+3|université/i.test(formStr))
     score += 10;
   else if (formations.length) score += 5;
 
@@ -135,21 +171,19 @@ const computeProfessionalCvScore = (result) => {
   else if (result.projets?.length === 1) score += 4;
 
   // 5) Langues
-  if (result.langues?.length >= 2) score += 10;
-  else if (result.langues?.length === 1) score += 5;
+  if (result.langues?.length >= 3) score += 12;
+  else if (result.langues?.length === 2) score += 8;
+  else if (result.langues?.length === 1) score += 4;
 
   // 6) Cohérence globale
-  let coherence = 15;
+  let coherence = 10;
 
-  // incohérence simple : dates inversées
+  // Pénalité pour incohérence dates
   result.experiences?.forEach((exp) => {
-    const years = exp.dates?.match(/(19|20)\d{2}/g);
-    if (
-      years &&
-      years.length === 2 &&
-      parseInt(years[1]) < parseInt(years[0])
-    ) {
-      coherence -= 5;
+    const dateStr = typeof exp === 'string' ? exp : exp.dates || '';
+    const years = dateStr.match(/(19|20)\d{2}/g);
+    if (years && years.length === 2 && parseInt(years[1]) < parseInt(years[0])) {
+      coherence -= 3;
     }
   });
 
@@ -157,12 +191,17 @@ const computeProfessionalCvScore = (result) => {
 
   // 7) Structure claire
   const structureSections =
-    (result.contact ? 1 : 0) +
+    (result.contact?.nom ? 1 : 0) +
     (result.formations?.length ? 1 : 0) +
     (result.experiences?.length ? 1 : 0) +
-    (result.competences?.length ? 1 : 0);
+    (comp.length ? 1 : 0);
 
-  score += structureSections * 3; // max 12
+  score += structureSections * 4; // max 16
+
+  // 8) Score minimum si basiques présentes
+  if (result.contact?.nom && result.experiences?.length && result.formations?.length) {
+    score = Math.max(score, 50);
+  }
 
   return Math.min(100, score);
 };
@@ -645,7 +684,7 @@ const Start = () => {
     }
   };
 
-  const extractionScore = computeExtractionScore(result);
+  const extractionScore = result?.extraction_confidence?.overall ?? computeExtractionScore(result);
   const professionalScore = computeProfessionalCvScore(result);
   const xpInfo = estimateExperienceLevel(result);
   const radarData = buildRadarData(result);

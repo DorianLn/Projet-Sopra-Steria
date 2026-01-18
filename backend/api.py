@@ -30,10 +30,86 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def compute_extraction_confidence(data):
+    """Calcule la fiabilité de l'extraction par section"""
+    confidence = {
+        "contact": 0,
+        "experiences": 0,
+        "formations": 0,
+        "competences": 0,
+        "langues": 0,
+        "overall": 0
+    }
+    
+    # Contact: 100% si nom + email, 70% si seulement nom, 0% sinon
+    contact = data.get("contact", {})
+    if contact.get("nom") and contact.get("email"):
+        confidence["contact"] = 100
+    elif contact.get("nom") or contact.get("email"):
+        confidence["contact"] = 70
+    else:
+        confidence["contact"] = 0
+    
+    # Experiences: 100% si >= 3, 70% si 1-2, 0% sinon
+    exp = data.get("experiences", [])
+    if len(exp) >= 3:
+        confidence["experiences"] = 100
+    elif len(exp) >= 1:
+        confidence["experiences"] = 70
+    else:
+        confidence["experiences"] = 0
+    
+    # Formations: 100% si >= 2, 70% si 1, 0% sinon
+    form = data.get("formations", [])
+    if len(form) >= 2:
+        confidence["formations"] = 100
+    elif len(form) >= 1:
+        confidence["formations"] = 70
+    else:
+        confidence["formations"] = 0
+    
+    # Competences: 100% si >= 5, 70% si 2-4, 0% si < 2
+    comp = data.get("competences", {})
+    comp_count = len(comp.get("techniques", [])) + len(comp.get("fonctionnelles", []))
+    if comp_count >= 5:
+        confidence["competences"] = 100
+    elif comp_count >= 2:
+        confidence["competences"] = 70
+    else:
+        confidence["competences"] = 0
+    
+    # Langues: 100% si >= 2, 70% si 1, 0% sinon
+    lang = data.get("langues", [])
+    if len(lang) >= 2:
+        confidence["langues"] = 100
+    elif len(lang) >= 1:
+        confidence["langues"] = 70
+    else:
+        confidence["langues"] = 0
+    
+    # Overall: moyenne pondérée
+    weights = {
+        "contact": 0.3,
+        "experiences": 0.3,
+        "formations": 0.15,
+        "competences": 0.15,
+        "langues": 0.1
+    }
+    
+    overall = sum(confidence[k] * weights[k] for k in weights)
+    confidence["overall"] = min(100, max(0, round(overall)))
+    
+    return confidence
+
+
 def process_cv(file_path):
     try:
         #  NOUVEAU PIPELINE ULTRA SIMPLE
         resultats = extract_cv_robust(str(file_path))
+
+        # Calcul de la confiance d'extraction
+        extraction_confidence = compute_extraction_confidence(resultats)
+        resultats["extraction_confidence"] = extraction_confidence
 
         # Sauvegarde JSON
         nom_candidat = (resultats.get("contact", {}).get("nom") or "Inconnu").replace(" ", "_")
@@ -403,11 +479,11 @@ def normalize_and_export_docx():
     """
     Endpoint: POST /api/cv/normalize/docx
     
-    Normalise un CV et retourne directement le DOCX généré.
+    Exporte un CV au format DOCX (peut être un CV normalisé v2.0 ou ancien format).
     
     Body:
     {
-      "cv_data": {...ancien JSON...}  ou upload fichier
+      "cv_data": {...CV v2.0 normalisé...}  ou {...ancien JSON...}  ou upload fichier
     }
     
     Retour: Fichier DOCX à télécharger
@@ -448,12 +524,24 @@ def normalize_and_export_docx():
             cv_data = data.get('cv_data')
             if not cv_data:
                 return jsonify({'error': 'cv_data manquant'}), 400
-            cv_normalized = normalize_old_cv_to_new(cv_data)
+            
+            # Vérifier si c'est déjà un CV normalisé (v2.0) ou ancien format
+            # Un CV v2.0 a des clés comme "header", "competences_fonctionnelles", "competences_techniques"
+            if "header" in cv_data and "competences_fonctionnelles" in cv_data:
+                # C'est déjà un CV normalisé v2.0
+                cv_normalized = cv_data
+            else:
+                # C'est un ancien format, normaliser
+                cv_normalized = normalize_old_cv_to_new(cv_data)
         else:
             return jsonify({'error': 'Aucun fichier ou JSON envoyé'}), 400
         
         # Conversion au format ancien pour compatibilité DOCX
-        cv_old_format = convert_v2_to_old_format(cv_normalized)
+        try:
+            cv_old_format = convert_v2_to_old_format(cv_normalized)
+        except Exception as e:
+            logging.error(f"Erreur conversion v2 -> old format: {str(e)}")
+            return jsonify({'error': f'Erreur conversion format: {str(e)}'}), 500
         
         # Génération du DOCX avec nom unique (timestamp)
         output_dir = Path(__file__).parent / "data" / "output"
@@ -463,7 +551,11 @@ def normalize_and_export_docx():
         docx_filename = f"cv_normalized_{timestamp}.docx"
         docx_path = output_dir / docx_filename
         
-        generate_sopra_docx(cv_old_format, str(docx_path))
+        try:
+            generate_sopra_docx(cv_old_format, str(docx_path))
+        except Exception as e:
+            logging.error(f"Erreur génération DOCX: {str(e)}")
+            return jsonify({'error': f'Erreur génération DOCX: {str(e)}'}), 500
         
         return send_file(
             str(docx_path),
@@ -474,7 +566,7 @@ def normalize_and_export_docx():
     
     except Exception as e:
         logging.error(f"Erreur export DOCX normalisé: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Erreur export DOCX: {str(e)}'}), 500
 
 
 @app.route('/api/cv/normalize/pdf', methods=['POST'])
@@ -482,11 +574,11 @@ def normalize_and_export_pdf():
     """
     Endpoint: POST /api/cv/normalize/pdf
     
-    Normalise un CV et retourne directement le PDF généré.
+    Exporte un CV au format PDF (peut être un CV normalisé v2.0 ou ancien format).
     
     Body:
     {
-      "cv_data": {...ancien JSON...}  ou upload fichier
+      "cv_data": {...CV v2.0 normalisé...}  ou {...ancien JSON...}  ou upload fichier
     }
     
     Retour: Fichier PDF à télécharger
@@ -528,12 +620,24 @@ def normalize_and_export_pdf():
             cv_data = data.get('cv_data')
             if not cv_data:
                 return jsonify({'error': 'cv_data manquant'}), 400
-            cv_normalized = normalize_old_cv_to_new(cv_data)
+            
+            # Vérifier si c'est déjà un CV normalisé (v2.0) ou ancien format
+            # Un CV v2.0 a des clés comme "header", "competences_fonctionnelles", "competences_techniques"
+            if "header" in cv_data and "competences_fonctionnelles" in cv_data:
+                # C'est déjà un CV normalisé v2.0
+                cv_normalized = cv_data
+            else:
+                # C'est un ancien format, normaliser
+                cv_normalized = normalize_old_cv_to_new(cv_data)
         else:
             return jsonify({'error': 'Aucun fichier ou JSON envoyé'}), 400
         
         # Conversion au format ancien pour compatibilité DOCX
-        cv_old_format = convert_v2_to_old_format(cv_normalized)
+        try:
+            cv_old_format = convert_v2_to_old_format(cv_normalized)
+        except Exception as e:
+            logging.error(f"Erreur conversion v2 -> old format: {str(e)}")
+            return jsonify({'error': f'Erreur conversion format: {str(e)}'}), 500
         
         # Génération du DOCX temporaire puis PDF avec nom unique (timestamp)
         output_dir = Path(__file__).parent / "data" / "output"
@@ -545,8 +649,17 @@ def normalize_and_export_pdf():
         docx_path = output_dir / docx_filename
         pdf_path = output_dir / pdf_filename
         
-        generate_sopra_docx(cv_old_format, str(docx_path))
-        convert_docx_to_pdf(str(docx_path), str(pdf_path))
+        try:
+            generate_sopra_docx(cv_old_format, str(docx_path))
+        except Exception as e:
+            logging.error(f"Erreur génération DOCX: {str(e)}")
+            return jsonify({'error': f'Erreur génération DOCX: {str(e)}'}), 500
+        
+        try:
+            convert_docx_to_pdf(str(docx_path), str(pdf_path))
+        except Exception as e:
+            logging.error(f"Erreur conversion PDF: {str(e)}")
+            return jsonify({'error': f'Erreur conversion PDF: {str(e)}'}), 500
         
         return send_file(
             str(pdf_path),
@@ -557,7 +670,7 @@ def normalize_and_export_pdf():
     
     except Exception as e:
         logging.error(f"Erreur export PDF normalisé: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Erreur export PDF: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, use_reloader=False)

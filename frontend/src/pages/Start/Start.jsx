@@ -36,152 +36,155 @@ const computeExtractionScore = (result) => {
   if (!result) return 0;
   let score = 0;
 
-  const weights = {
-    contact: 25,
-    formations: 15,
-    experiences: 20,
-    competences: 20,
-    langues: 10,
-    projets: 5,
-    certifications: 3,
-    disponibilite: 2,
-  };
+  // === POINTS DE BASE (tout doit être présent) ===
+  const hasNom = result.contact?.nom ? 1 : 0;
+  const hasEmail = result.contact?.email ? 1 : 0;
+  const hasFormations = Array.isArray(result.formations) && result.formations.length > 0 ? 1 : 0;
+  const hasExperiences = result.experiences ? 1 : 0;
+  const hasCompetences =
+    (Array.isArray(result.competences?.techniques) && result.competences.techniques.length > 0) ||
+    (Array.isArray(result.competences?.fonctionnelles) && result.competences.fonctionnelles.length > 0) ? 1 : 0;
+  const hasLangues = Array.isArray(result.langues) && result.langues.length > 0 ? 1 : 0;
 
-  if (result.contact?.nom && result.contact?.email) score += weights.contact;
-  if (result.formations?.length) score += weights.formations;
-  if (result.experiences?.length) score += weights.experiences;
-  if (result.competences?.length) score += weights.competences;
-  if (result.langues?.length) score += weights.langues;
-  if (result.projets?.length) score += weights.projets;
-  if (result.certifications?.length) score += weights.certifications;
-  if (result.disponibilite) score += weights.disponibilite;
+  // Score de structure : avoir tous les éléments clés (max 75%)
+  score += hasNom * 12;        // Nom obligatoire
+  score += hasEmail * 8;       // Email bonus
+  score += hasFormations * 12; // Formations
+  score += hasExperiences * 15; // Expériences
+  score += hasCompetences * 12; // Compétences
+  score += hasLangues * 8;     // Langues
 
-  // --- Penalties ---
-  let penalties = 0;
-
-  // Nom mal extrait (contient un métier ou trop de mots)
-  if (
-    result.contact?.nom &&
-    /développeur|ingénieur|chef|manager/i.test(result.contact.nom)
-  ) {
-    penalties += 10;
+  // === POINTS DE RICHESSE (completude) - max 20% ===
+  // Plus il y a de formations, mieux c'est
+  if (hasFormations) {
+    const formCount = Math.min(result.formations.length, 5);
+    score += formCount * 1.5; // 0 à 7.5 points
   }
 
-  // Dates incohérentes
-  result.experiences?.forEach((exp) => {
-    const years = exp.dates?.match(/(19|20)\d{2}/g);
-    if (years && years.length === 2) {
-      if (parseInt(years[1]) < parseInt(years[0])) penalties += 8;
+  // Plus il y a d'expériences, mieux c'est
+  if (hasExperiences) {
+    let expCount = 0;
+    if (typeof result.experiences === "string") {
+      expCount = result.experiences.trim().length > 100 ? 3 : 1;
+    } else if (Array.isArray(result.experiences)) {
+      expCount = Math.min(result.experiences.length, 6);
     }
-  });
+    score += expCount * 1.2; // 0 à 7.2 points
+  }
 
-  // Exp sans dates
-  const emptyDatesCount =
-    result.experiences?.filter((e) => !e.dates)?.length || 0;
-  penalties += emptyDatesCount * 5;
+  // Plus il y a de compétences, mieux c'est
+  const compCount =
+    (result.competences?.techniques?.length || 0) +
+    (result.competences?.fonctionnelles?.length || 0);
+  if (compCount > 0) {
+    const capped = Math.min(compCount, 10);
+    score += capped * 0.8; // 0 à 8 points
+  }
 
-  // Doublons entreprises
-  const entreprises = new Set();
-  result.experiences?.forEach((e) => {
-    if (entreprises.has(e.entreprise)) penalties += 5;
-    entreprises.add(e.entreprise);
-  });
+  // === PENALTIES ===
+  let penalties = 0;
+
+  // Nom mal extrait (contient un métier)
+  if (result.contact?.nom && /développeur|ingénieur|chef|manager|architecte|consultant/i.test(result.contact.nom)) {
+    penalties += 5;
+  }
 
   score -= penalties;
-
-  return Math.max(0, Math.min(100, score));
+  return Math.max(0, Math.min(95, score)); // MAX 95%
 };
 
 const computeProfessionalCvScore = (result) => {
   if (!result) return 0;
   let score = 0;
 
-  // 1) Richesse compétences
+  // 1) Richesse compétences - AUGMENTÉ
   const comp = [
     ...(result.competences?.techniques || []),
     ...(result.competences?.fonctionnelles || []),
   ];
-  const hasBackend = comp.some((c) =>
-    /python|java|spring|node|django|c\+\+/i.test(c)
-  );
-  const hasFrontend = comp.some((c) =>
-    /react|angular|vue|html|css|javascript/i.test(c)
-  );
-  const hasCloud = comp.some((c) =>
-    /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd/i.test(c)
-  );
-  const hasSoft = comp.some((c) => /communication|leadership|gestion/i.test(c));
 
-  score += (hasBackend + hasFrontend + hasCloud + hasSoft) * 5; // max 20
+  const compText = comp.join(" ").toLowerCase();
+  const hasBackend = /python|java|spring|node|django|c\+\+|rust|golang/i.test(compText);
+  const hasFrontend = /react|angular|vue|html|css|javascript|typescript/i.test(compText);
+  const hasCloud = /aws|azure|gcp|cloud|docker|kubernetes|ci\/cd|devops/i.test(compText);
+  const hasSoft = /communication|leadership|gestion|management|agile|scrum|safe/i.test(compText);
+  const hasDatabase = /sql|postgres|mysql|mongodb|elasticsearch|oracle/i.test(compText);
 
-  // 2) Expérience totale
+  score += (hasBackend + hasFrontend + hasCloud + hasSoft + hasDatabase) * 5; // max 25
+
+  // 2) Expérience totale - AUGMENTÉ
   const years = estimateExperienceLevel(result).years;
-  if (years >= 7) score += 20;
-  else if (years >= 4) score += 15;
-  else if (years >= 2) score += 10;
-  else if (years >= 1) score += 5;
+  if (years >= 7) score += 25;
+  else if (years >= 4) score += 18;
+  else if (years >= 2) score += 12;
+  else if (years >= 1) score += 6;
 
-  // 3) Études
+  // 3) Études - AUGMENTÉ & BONUS CERTIFICATIONS
   const formations = result.formations || [];
-  if (formations.some((f) => /master|bac\+5|ingénieur/i.test(f.etablissement)))
-    score += 15;
-  else if (formations.some((f) => /licence|bac\+3/i.test(f.etablissement)))
-    score += 10;
-  else if (formations.length) score += 5;
+  const formText = formations.join(" ").toLowerCase();
 
-  // 4) Projets / réalisations
-  if (result.projets?.length >= 3) score += 10;
-  else if (result.projets?.length === 2) score += 7;
-  else if (result.projets?.length === 1) score += 4;
+  let formScore = 0;
+  if (/master|bac\+5|ingénieur|grande école/i.test(formText)) {
+    formScore = 15;
+  } else if (/licence|bac\+3/i.test(formText)) {
+    formScore = 10;
+  } else if (formations.length > 0) {
+    formScore = 5;
+  }
+
+  // Bonus certifications professionnelles
+  if (/istqb|psm|safe|scrum|aws|azure/i.test(formText)) {
+    formScore += 8;
+  }
+
+  score += formScore;
+
+  // 4) Richesse des compétences (nombre) - AUGMENTÉ
+  if (comp.length >= 15) score += 12;
+  else if (comp.length >= 10) score += 10;
+  else if (comp.length >= 6) score += 7;
+  else if (comp.length >= 3) score += 4;
 
   // 5) Langues
-  if (result.langues?.length >= 2) score += 10;
-  else if (result.langues?.length === 1) score += 5;
+  const langues = result.langues || [];
+  if (langues.length >= 2) score += 10;
+  else if (langues.length === 1) score += 5;
 
-  // 6) Cohérence globale
-  let coherence = 15;
+  // 6) Structure et complétude
+  const hasContact = result.contact?.nom ? 1 : 0;
+  const hasFormations = formations?.length > 0 ? 1 : 0;
+  const hasExperiences = result.experiences ? 1 : 0;
+  const hasSkills = comp.length > 0 ? 1 : 0;
+  const hasLangues = langues.length > 0 ? 1 : 0;
 
-  // incohérence simple : dates inversées
-  result.experiences?.forEach((exp) => {
-    const years = exp.dates?.match(/(19|20)\d{2}/g);
-    if (
-      years &&
-      years.length === 2 &&
-      parseInt(years[1]) < parseInt(years[0])
-    ) {
-      coherence -= 5;
-    }
-  });
+  const structureSections = hasContact + hasFormations + hasExperiences + hasSkills + hasLangues;
+  score += structureSections * 3; // max 15
 
-  score += Math.max(0, coherence);
-
-  // 7) Structure claire
-  const structureSections =
-    (result.contact ? 1 : 0) +
-    (result.formations?.length ? 1 : 0) +
-    (result.experiences?.length ? 1 : 0) +
-    (result.competences?.length ? 1 : 0);
-
-  score += structureSections * 3; // max 12
+  // 7) BONUS : Nombre d'expériences nombreuses
+  if (Array.isArray(result.experiences) && result.experiences.length >= 5) {
+    score += 5;
+  }
 
   return Math.min(100, score);
 };
 
 const estimateExperienceLevel = (result) => {
-  if (!result?.experiences?.length) return { label: "Non déterminé", years: 0 };
+  if (!result?.experiences) return { label: "Non déterminé", years: 0 };
 
   let minYear = 9999;
   let maxYear = 0;
 
   const extractYear = (str) => {
     if (!str) return null;
-    const range = str.match(/(19|20)\d{2}.*(19|20)\d{2}/);
+    // Chercher une plage : "2020-2023" ou "2020 à 2023"
+    const range = str.match(/(19|20)\d{2}\s*[-–à]\s*(19|20)\d{2}/);
     if (range) {
       const years = str.match(/(19|20)\d{2}/g);
       if (years && years.length >= 2) {
         return { start: parseInt(years[0], 10), end: parseInt(years[1], 10) };
       }
     }
+    // Chercher une seule année
     const single = str.match(/(19|20)\d{2}/);
     if (single) {
       const y = parseInt(single[0], 10);
@@ -190,16 +193,28 @@ const estimateExperienceLevel = (result) => {
     return null;
   };
 
-  result.experiences.forEach((exp) => {
-    const parsed = extractYear(exp.dates);
+  // Traiter experiences (peut être string ou array)
+  if (typeof result.experiences === "string") {
+    const parsed = extractYear(result.experiences);
     if (parsed) {
       minYear = Math.min(minYear, parsed.start);
       maxYear = Math.max(maxYear, parsed.end);
     }
-  });
+  } else if (Array.isArray(result.experiences)) {
+    result.experiences.forEach((exp) => {
+      const expStr = typeof exp === "string" ? exp : (exp.title || "");
+      const parsed = extractYear(expStr);
+      if (parsed) {
+        minYear = Math.min(minYear, parsed.start);
+        maxYear = Math.max(maxYear, parsed.end);
+      }
+    });
+  }
 
-  if (minYear === 9999 || maxYear === 0)
+  if (minYear === 9999 || maxYear === 0) {
     return { label: "Non déterminé", years: 0 };
+  }
+
   const years = Math.max(0, maxYear - minYear + 1);
 
   let label = "Junior";
@@ -529,35 +544,35 @@ const Start = () => {
       if (modifiedDocx) {
         const formData = new FormData();
         formData.append("file", modifiedDocx);
-  
+
         const response = await fetch("http://localhost:5000/api/cv/convert", {
           method: "POST",
           body: formData,
         });
-  
+
         if (!response.ok) {
           const err = await response.json();
           throw new Error(err.error || "Erreur lors de la conversion");
         }
-  
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-  
+
         const a = document.createElement("a");
         a.href = url;
         a.download = "CV_Modifié.pdf";
         a.click();
-  
+
         URL.revokeObjectURL(url);
         return;
       }
-  
+
       // CAS 2 : conversion directe du DOCX généré
       if (!generatedDocxName) {
         alert("Veuillez d'abord télécharger le DOCX avant de le convertir.");
         return;
       }
-  
+
       const response = await fetch("http://localhost:5000/api/cv/convert", {
         method: "POST",
         headers: {
@@ -567,22 +582,22 @@ const Start = () => {
           filename: generatedDocxName,
         }),
       });
-  
+
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || "Erreur lors de la conversion");
       }
-  
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-  
+
       const a = document.createElement("a");
       a.href = url;
       a.download = `${generatedDocxName}.pdf`;
       a.click();
-  
+
       URL.revokeObjectURL(url);
-  
+
     } catch (e) {
       alert("Erreur : " + e.message);
     }
@@ -645,8 +660,8 @@ const Start = () => {
     }
   };
 
-  const extractionScore = computeExtractionScore(result);
-  const professionalScore = computeProfessionalCvScore(result);
+  const extractionScore = Math.round(computeExtractionScore(result));
+  const professionalScore = Math.round(computeProfessionalCvScore(result));
   const xpInfo = estimateExperienceLevel(result);
   const radarData = buildRadarData(result);
 

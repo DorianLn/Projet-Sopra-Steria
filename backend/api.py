@@ -12,7 +12,8 @@ logging.basicConfig(level=logging.DEBUG)
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from extractors.version_mapper import normalize_old_cv_to_new, convert_v2_to_old_format
-from extractors.robust_extractor import extract_cv_robust
+from extractors.robust_extractor import extract_cv_robust, extract_text
+from extractors.hybrid_extractor import extract_cv_hybrid
 
 app = Flask(__name__)
 CORS(app)  # Autorise les requêtes cross-origin
@@ -28,8 +29,13 @@ def allowed_file(filename):
 
 def process_cv(file_path):
     try:
-        #  NOUVEAU PIPELINE ULTRA SIMPLE
-        resultats = extract_cv_robust(str(file_path))
+        # 🚀 PIPELINE HYBRIDE ACTIVÉ
+        # Utilise les règles en priorité + fallback ML automatique
+        resultats = extract_cv_hybrid(
+            str(file_path),
+            extract_robust_fn=extract_cv_robust,
+            extract_text_fn=extract_text
+        )
 
         # Sauvegarde JSON
         nom_candidat = (resultats.get("contact", {}).get("nom") or "Inconnu").replace(" ", "_")
@@ -189,7 +195,7 @@ def convert_docx_to_pdf_route():
 
         return jsonify({
             "error": "Envoyez soit un fichier DOCX, soit un nom de fichier"
-        }), 400
+        }, 400)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

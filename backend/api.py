@@ -9,12 +9,8 @@ import logging
 from datetime import datetime
 logging.basicConfig(level=logging.DEBUG)
 
-
-
-# Ajoute le dossier parent au PYTHONPATH pour trouver analyser_cv.py
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from extractors.section_classifier import build_structured_json
 from extractors.version_mapper import normalize_old_cv_to_new, convert_v2_to_old_format
 from extractors.robust_extractor import extract_cv_robust
 

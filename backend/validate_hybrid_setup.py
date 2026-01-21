@@ -51,23 +51,28 @@ class ValidationChecker:
 
         models_path = self.backend_path.parent / "models"
 
-        cv_ner = models_path / "cv_ner"
-        cv_pipeline = models_path / "cv_pipeline"
+        # accepter plusieurs candidats (ordre de préférence)
+        candidates = [
+            models_path / "cv_ner_final",
+            models_path / "cv_ner",
+            models_path / "cv_ner_stage1",
+            models_path / "cv_pipeline",
+        ]
 
-        has_primary = cv_ner.exists() and (cv_ner / "meta.json").exists()
-        has_backup = cv_pipeline.exists() and (cv_pipeline / "meta.json").exists()
+        found = None
+        for c in candidates:
+            if c.exists() and (c / "meta.json").exists():
+                found = c
+                break
 
-        if has_primary:
-            self.success.append(f"✓ Modèle cv_ner trouvé")
-        elif has_backup:
-            self.warnings.append(
-                ("Modèle primaire absent",
-                 "cv_ner n'existe pas, utilisation cv_pipeline")
-            )
+        if found:
+            self.success.append(f"✓ Modèle spaCy trouvé: {found.name}")
         else:
+            # aucun modèle entraîné trouvé: avertir et indiquer le fallback
             self.issues.append(
-                ("ERREUR", "Aucun modèle ML trouvé",
-                 "Ni cv_ner ni cv_pipeline détectés. Le fallback utilisera fr_core_news_md.")
+                ("ERREUR", "Aucun modèle ML entraîné trouvé",
+                 "Aucun des modèles attendus (cv_ner_final, cv_ner, cv_ner_stage1, cv_pipeline) n'a été détecté.\n"
+                 "Le fallback utilisera fr_core_news_md.")
             )
             return False
 
@@ -302,4 +307,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

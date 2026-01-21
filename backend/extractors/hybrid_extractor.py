@@ -28,9 +28,13 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # =============================================================================
 
-# Chemin vers le modèle entraîné
-TRAINED_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_ner"
-BACKUP_MODEL_PATH = Path(__file__).parent.parent / "models" / "cv_pipeline"
+# Ordre de recherche des modèles (priorité à cv_ner_final)
+MODEL_CANDIDATES = [
+    Path(__file__).parent.parent / "models" / "cv_ner_final",
+    Path(__file__).parent.parent / "models" / "cv_ner",
+    Path(__file__).parent.parent / "models" / "cv_ner_stage1",
+    Path(__file__).parent.parent / "models" / "cv_pipeline",
+]
 BASE_MODEL = "fr_core_news_md"
 
 # Cache du modèle spaCy
@@ -47,25 +51,17 @@ def load_spacy_model():
     if _nlp_cache is not None:
         return _nlp_cache
 
-    # Essayer le modèle principal
-    if TRAINED_MODEL_PATH.exists():
+    # Essayer chaque candidat dans l'ordre
+    for candidate in MODEL_CANDIDATES:
         try:
-            _nlp_cache = spacy.load(str(TRAINED_MODEL_PATH))
-            logger.info(f"✓ Modèle cv_ner chargé depuis {TRAINED_MODEL_PATH}")
-            return _nlp_cache
+            if candidate.exists():
+                _nlp_cache = spacy.load(str(candidate))
+                logger.info(f"✓ Modèle spaCy chargé depuis {candidate}")
+                return _nlp_cache
         except Exception as e:
-            logger.warning(f"Erreur chargement cv_ner: {e}")
+            logger.warning(f"Erreur chargement modèle {candidate}: {e}")
 
-    # Essayer le modèle backup
-    if BACKUP_MODEL_PATH.exists():
-        try:
-            _nlp_cache = spacy.load(str(BACKUP_MODEL_PATH))
-            logger.info(f"✓ Modèle cv_pipeline chargé depuis {BACKUP_MODEL_PATH}")
-            return _nlp_cache
-        except Exception as e:
-            logger.warning(f"Erreur chargement cv_pipeline: {e}")
-
-    # Fallback vers le modèle standard
+    # Fallback vers le modèle spaCy public
     try:
         _nlp_cache = spacy.load(BASE_MODEL)
         logger.info(f"✓ Modèle standard {BASE_MODEL} chargé (fallback)")
@@ -447,4 +443,3 @@ def extract_cv_hybrid(file_path: str, extract_robust_fn, extract_text_fn) -> Dic
 
     logger.info(f"{'='*70}\n")
     return final_result
-
